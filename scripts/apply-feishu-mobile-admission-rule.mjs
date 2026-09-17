@@ -1,0 +1,22 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const stage = process.argv.includes("--stage");
+function userEnv(name) { if (process.env[name]) return process.env[name]; try { return execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `[Environment]::GetEnvironmentVariable('${name}', 'User')`], { encoding: "utf8", windowsHide: true }).trim(); } catch { return ""; } }
+async function api(url, options = {}) { const response = await fetch(url, options); const payload = await response.json().catch(() => ({})); if (!response.ok || Number(payload.code || 0) !== 0) throw new Error(payload.msg || `飞书请求失败：${response.status}`); return payload; }
+async function listRows(base, headers) { const rows = []; let pageToken = ""; do { const suffix = pageToken ? `&page_token=${encodeURIComponent(pageToken)}` : ""; const payload = await api(`${base}/records?page_size=500${suffix}`, { headers }); rows.push(...(payload.data?.items || [])); pageToken = payload.data?.page_token || ""; } while (pageToken); return rows; }
+function text(value) { return typeof value === "object" ? value?.text || value?.name || value?.value || "" : String(value ?? ""); }
+function keep(row) { const fields = row.fields || {}; const game = text(fields["游戏名"]).trim(); if (!game) return true; const platform = text(fields["平台"]); const rating = text(fields["评级"]).trim(); return /小七/iu.test(platform) || /^(?:A|S)(?:\s|·|$)/u.test(rating); }
+
+const appId = userEnv("FEISHU_MONITOR_APP_ID"); const appSecret = userEnv("FEISHU_MONITOR_APP_SECRET"); const appToken = userEnv("FEISHU_MONITOR_APP_TOKEN"); const sourceTableId = userEnv("FEISHU_MONITOR_TABLE_ID");
+if (!appId || !appSecret || !appToken || !sourceTableId) throw new Error("飞书监控配置不完整");
+const auth = await api("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app_id: appId, app_secret: appSecret }) });
+const headers = { Authorization: `Bearer ${auth.tenant_access_token}`, "content-type": "application/json" }; const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}`;
+const tables = (await api(`${base}/tables?page_size=100`, { headers })).data?.items || []; const targets = [{ name: "主数据表", tableId: sourceTableId }, { name: "活动", tableId: tables.find((table) => table.name === "活动" && table.table_id !== sourceTableId)?.table_id || "" }].filter((target) => target.tableId);
+const snapshots = []; const deletions = [];
+for (const target of targets) { const rows = await listRows(`${base}/tables/${target.tableId}`, headers); snapshots.push({ ...target, rows }); deletions.push(...rows.filter((row) => !keep(row)).map((row) => ({ ...row, tableName: target.name, tableId: target.tableId }))); }
+let backupPath = "";
+if (stage) { const backupDir = join(process.cwd(), "data", "backups"); mkdirSync(backupDir, { recursive: true }); backupPath = join(backupDir, `feishu-mobile-tables-before-admission-${new Date().toISOString().replace(/[:.]/gu, "-")}.json`); writeFileSync(backupPath, JSON.stringify({ createdAt: new Date().toISOString(), purpose: "飞书新游/活动表仅保留 A/S 与小七；保留空行及完整快照。", snapshots, deleteRecordIds: deletions.map((row) => ({ tableId: row.tableId, recordId: row.record_id })) }, null, 2), "utf8"); for (const target of targets) { const ids = deletions.filter((row) => row.tableId === target.tableId).map((row) => row.record_id); for (let index = 0; index < ids.length; index += 500) await api(`${base}/tables/${target.tableId}/records/batch_delete`, { method: "POST", headers, body: JSON.stringify({ records: ids.slice(index, index + 500) }) }); } }
+const byType = {}; for (const row of deletions) { const type = text(row.fields?.["类型"]) || "未标注"; byType[type] = (byType[type] || 0) + 1; }
+console.log(JSON.stringify({ mode: stage ? "stage" : "dry-run", tables: snapshots.map((item) => ({ name: item.name, rows: item.rows.length, deletions: deletions.filter((row) => row.tableId === item.tableId).length })), deletionCount: deletions.length, deleted: stage ? deletions.length : 0, byType, backupPath, samples: deletions.slice(0, 12).map((row) => ({ table: row.tableName, game: text(row.fields?.["游戏名"]), type: text(row.fields?.["类型"]), rating: text(row.fields?.["评级"]), platform: text(row.fields?.["平台"]), recordId: row.record_id })) }, null, 2));

@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.playwright-cli/
+.snapshots/
+*.bak-*
+audit-*.png
+.env
+.env.*
+!.env.example
+*.secret
+*.key
+
+# 本机运行数据、缓存、备份与日志不入库。
+# 首次运行会由程序自行创建 data/，不需要将采集结果、数据库或调试素材带到其他电脑。
+data/
+backups/
+logs/
+*.log
+
+# 日常生成物仅通过 published-posters/ 归档。
+output/*
+!output/.gitkeep
+tools/cloudflared/
+scripts/__pycache__/
+.DS_Store
