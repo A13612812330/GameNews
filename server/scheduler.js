@@ -20,6 +20,7 @@ import { finalizeCrawlRun } from "./crawlFinalize.js";
 import { syncFeishuTopicMonitor } from "./feishuTopicMonitor.js";
 import { writeWeeklyPoster } from "./weeklyPoster.js";
 import { getDashboardProjection } from "./briefProjection.js";
+import { createKindLock, parsePosterStdout, summarizeProcessFailure } from "./scheduler-support.js";
 import { promisify } from "node:util";
 
 const MOBILE_SOURCES = ["ref-haoyou","ref-taptap","ref-x7"];
@@ -27,7 +28,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const execFileAsync = promisify(execFile);
 let monitorRunning = false;
 let pipelineRunning = false;
-let posterRunning = false;
+// 海报投递的运行锁按 kind 分离：日报卡住不应把周报一起拖死（旧实现共用一个布尔标志）。
+const posterKindLock = createKindLock();
 const schedulerLeasePath = path.join(root, "data", "logs", "scheduler.lease");
 let schedulerLeaseOwned = false;
 
@@ -41,7 +43,12 @@ function acquireSchedulerLease() {
     const release = () => {
       if (!schedulerLeaseOwned) return;
       schedulerLeaseOwned = false;
-      try { fsSync.unlinkSync(schedulerLeasePath); } catch {}
+      try {
+        fsSync.unlinkSync(schedulerLeasePath);
+      } catch (error) {
+        // 残留锁会让下一次启动误判「已有实例在跑」⇒ 必须留下痕迹，不能静默吞。
+        console.warn(`[scheduler] 调度锁未能删除（残留会误导下次启动）：${error?.message || error}`);
+      }
     };
     process.once("exit", release);
     process.once("SIGINT", () => { release(); process.exit(0); });
@@ -79,11 +86,12 @@ async function runRetentionMaintenance() {
  */
 async function runPosterDelivery(kind, sourceFile = "", articleIds = []) {
   const label = kind === "weekly" ? "weekly-poster" : "daily-poster";
-  if (posterRunning) {
-    console.log(`[${label}] 上一轮海报投递仍在运行，本轮跳过`);
+  // 互斥粒度是 kind，不是「整个海报链路」。旧实现用共享的 posterRunning，
+  // 使周报能否发出取决于日报有没有卡住（2026-09-28 实测踩中）。
+  if (!posterKindLock.tryBegin(kind)) {
+    console.log(`[${label}] 同类型海报投递仍在运行，本轮跳过`);
     return null;
   }
-  posterRunning = true;
   try {
     const args = [path.join(root, "scripts", "scheduled-posters.mjs"), kind];
     if (sourceFile) args.push("--file", path.basename(sourceFile));
@@ -91,14 +99,19 @@ async function runPosterDelivery(kind, sourceFile = "", articleIds = []) {
     const { stdout = "", stderr = "" } = await execFileAsync(process.execPath, args, {
       cwd: root,
       windowsHide: true,
-      timeout: 180000,
-      maxBuffer: 2 * 1024 * 1024,
+      // 外层预算必须严格大于子脚本内部各段超时之和，否则会重演 2026-09-28 的
+      // 预算倒挂：内层单浏览器 90s × 2 个浏览器 = 180s，与外层 execFile 的 180s
+      // 完全相等 ⇒ 外层先杀，实测耗时正好 180 秒，日报连续失败。
+      // 现在内层收到 45s（≤3 个浏览器则 ≤135s），外层给 420s，
+      // 留给 waitForServer / 生成海报 / 隧道 / 裁边（自身 60s×2）等固定开销约 285s。
+      timeout: 420000,
+      maxBuffer: 4 * 1024 * 1024,
     });
     let result;
     try {
-      result = JSON.parse(String(stdout).trim());
-    } catch {
-      throw new Error(`海报脚本未返回可识别结果${stderr ? `：${String(stderr).trim()}` : ""}`);
+      result = parsePosterStdout(String(stdout));
+    } catch (parseError) {
+      throw new Error(`${parseError.message}${stderr ? `：${String(stderr).trim()}` : ""}`);
     }
     if (!result?.ok || (result?.feishu !== "sent" && !result?.skipped)) {
       throw new Error(result?.feishu || "飞书海报未发送");
@@ -117,12 +130,16 @@ async function runPosterDelivery(kind, sourceFile = "", articleIds = []) {
     console.log(`[${label}] ${result.skipped ? "- 已跳过重复投递" : "✓ 飞书已发送"}：${path.basename(result.target || sourceFile || "")}`);
     return result;
   } catch (error) {
-    const message = error?.message || "海报投递失败";
-    await writeCronLog(label, { success: false, kind, fileName: path.basename(sourceFile || ""), error: message });
-    console.error(`[${label}] ✗ ${message}`);
+    // error.message 只有一句 "Command failed: <命令>"，真正的原因在 stdout/stderr 里，
+    // 全部落盘到 cron-result，否则下次又只能靠猜（2026-09-28：截图超时那条 warn 被丢掉）。
+    const failure = summarizeProcessFailure(error);
+    await writeCronLog(label, { success: false, kind, fileName: path.basename(sourceFile || ""), ...failure });
+    console.error(`[${label}] ✗ ${failure.error}`);
+    if (failure.stderrTail) console.error(`[${label}] stderr: ${failure.stderrTail}`);
+    if (failure.stdoutTail) console.error(`[${label}] stdout: ${failure.stdoutTail}`);
     return null;
   } finally {
-    posterRunning = false;
+    posterKindLock.end(kind);
   }
 }
 
@@ -148,7 +165,9 @@ function preferDuplicate(candidate, current) {
   return candidateScore > currentScore;
 }
 
-async function writeCronLog(label, detail) {
+let cronLogQueue = Promise.resolve();
+
+async function appendCronLog(label, detail) {
   const logFile = path.join(root, "data", "logs", "cron-result.json");
   const entry = { time: new Date().toISOString(), label, ...detail };
   try {
@@ -159,6 +178,16 @@ async function writeCronLog(label, detail) {
     await fs.mkdir(path.dirname(logFile), { recursive: true });
     await fs.writeFile(logFile, JSON.stringify(logs, null, 2));
   } catch (e) { console.error("[cron-log]", e.message); }
+}
+
+/**
+ * 串行化写入。cron-result.json 是「读-改-写」的文件，日报海报、周报海报、
+ * 每小时的监控流水线可能在相近时间各自收尾；并发写会互相覆盖、直接丢记录，
+ * 而这份文件正是排查定时任务的唯一凭据。同进程内排队即可消除该竞态。
+ */
+function writeCronLog(label, detail) {
+  cronLogQueue = cronLogQueue.then(() => appendCronLog(label, detail));
+  return cronLogQueue;
 }
 
 /** 定时流水线也要把「静默失效」打进日志，否则又回到没人发现的旧状态。 */
@@ -532,12 +561,17 @@ export function startScheduler() {
   cron.schedule("30 8 * * *", () => runMorningBriefAndPoster().catch(e => console.error("[morning-poster]", e)));
   // 每日晚报 17:50
   cron.schedule("50 17 * * *", () => runPipeline("afternoon", 12, { syncMonitor: false }).catch(e => console.error("[afternoon]", e)));
-  // 每周一 08:35 周报
-  cron.schedule("35 8 * * 1", () => runWeeklyBriefAndPoster().catch(e => console.error("[weekly-poster]", e)));
+  // 每周一 08:50 周报。
+  // 原为 08:35，与 08:30 的日报海报共用同一台机器上的浏览器/隧道资源；
+  // 日报外层超时放宽到 420s 后，其最坏窗口会盖住 08:35 ⇒ 两者可能并发抢
+  // Cloudflare 隧道与 poster-delivery.json（读-改-写会丢记录）。
+  // 错开到 08:50 后，日报最坏（约 08:37 结束）与周报之间有 >10 分钟净空。
+  // 注意：kind 级互斥已独立成立，这里只是消除资源竞争，不是互斥的替代品。
+  cron.schedule("50 8 * * 1", () => runWeeklyBriefAndPoster().catch(e => console.error("[weekly-poster]", e)));
   // 每日凌晨：最近 7 天和未来保留完整数据；更早内容轻量 JSON 留档，图片不缓存。
   cron.schedule("15 3 * * *", () => runRetentionMaintenance().catch(e => console.error("[retention-maintenance]", e)));
 
-  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控 + 08:30早报/日海报 + 17:50晚报 + 周一08:35周报/飞书投递 + 每日03:15轻量留档清理");
+  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控 + 08:30早报/日海报 + 17:50晚报 + 周一08:50周报/飞书投递 + 每日03:15轻量留档清理");
 }
 
 export { runPipeline, runMonitorPipeline, runWeeklyBrief };

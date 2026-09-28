@@ -1,3 +1,11 @@
+/**
+ * stdout 契约（务必遵守）：**整个 stdout 只允许出现结尾那一个结果 JSON**。
+ * 父进程 server/scheduler.js 的 runPosterDelivery 会拿 stdout 去解析投递结果，
+ * 任何诊断行写进 stdout 都会让它解析失败，把「投递成功」误判成
+ * 「海报脚本未返回可识别结果」（2026-09-28 定位，6190ca4 引入的回归）。
+ * ⇒ 所有日志一律用 console.warn / console.error（走 stderr）。
+ * 父进程侧另有 parsePosterStdout 兜底，但不要依赖它。
+ */
 import { execFileSync, spawn } from "node:child_process";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
@@ -29,8 +37,9 @@ function shanghaiDateKey(now = new Date()) {
   return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
 }
 
-// 锁的年龄兜底阈值。调度器给海报脚本设了 180s 超时（server/scheduler.js 的
+// 锁的年龄兜底阈值。调度器给海报脚本设了 420s 超时（server/scheduler.js 的
 // runPosterDelivery），所以超过 10 分钟的锁不可能是「真的还在投递」。
+// 不变式：DELIVERY_LOCK_TTL_MS > 外层 execFile 超时，否则会把真实投递的锁抢掉。
 const DELIVERY_LOCK_TTL_MS = 10 * 60 * 1000;
 
 /**
@@ -47,6 +56,23 @@ function deliveryLockIsStale(current = {}) {
   return Date.now() - startedAt > DELIVERY_LOCK_TTL_MS;
 }
 
+/**
+ * 释放投递锁。
+ *
+ * 旧实现是 `try { unlinkSync } catch {}`：2026-09-28 实测 weekly 投递明明成功
+ * （poster-delivery.json 有 weekly:2026-09-28 sentAt=00:35:02.242Z），
+ * 锁文件 poster-delivery-weekly.lock 却残留下来，而删除失败的原因被静默吞掉。
+ * 残留锁会在下次排查时被误读成「投递卡住了」。失败必须留痕，不阻断主流程。
+ */
+function releaseDeliveryLock() {
+  try {
+    fsSync.unlinkSync(deliveryLockPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    console.warn(`[poster-lock] 投递锁未能删除：${path.basename(deliveryLockPath)} — ${error?.message || error}`);
+  }
+}
+
 function acquireDeliveryLock(attempt = 0) {
   fsSync.mkdirSync(path.dirname(deliveryLockPath), { recursive: true });
   try {
@@ -55,9 +81,7 @@ function acquireDeliveryLock(attempt = 0) {
     fsSync.closeSync(fd);
     deliveryLockOwned = true;
     process.once("exit", () => {
-      if (deliveryLockOwned) {
-        try { fsSync.unlinkSync(deliveryLockPath); } catch {}
-      }
+      if (deliveryLockOwned) releaseDeliveryLock();
     });
     return true;
   } catch (error) {
@@ -66,8 +90,9 @@ function acquireDeliveryLock(attempt = 0) {
     let current = {};
     try { current = JSON.parse(fsSync.readFileSync(deliveryLockPath, "utf8")); } catch { current = {}; }
     const steal = () => {
-      console.log(`[poster-lock] 清除僵死锁 ${path.basename(deliveryLockPath)}（pid=${current.pid ?? "?"} startedAt=${current.startedAt ?? "?"}）`);
-      try { fsSync.unlinkSync(deliveryLockPath); } catch {}
+      // 走 stderr：stdout 只留给结尾的结果 JSON。
+      console.warn(`[poster-lock] 清除僵死锁 ${path.basename(deliveryLockPath)}（pid=${current.pid ?? "?"} startedAt=${current.startedAt ?? "?"}）`);
+      releaseDeliveryLock();
       return acquireDeliveryLock(attempt + 1);
     };
     if (deliveryLockIsStale(current)) return steal();
@@ -274,7 +299,15 @@ async function renderPosterPreview(filePath) {
   // 的图始终不返回，浏览器进程就不会退出；而原实现只监听 close，于是一直等下去
   // （实测 2026-09-28 卡死 8 分钟以上、PNG 始终不落盘，投递锁也被一直占住）。
   // 超时后终止该浏览器并继续尝试下一个，避免单张图把整条投递链路拖死。
-  const RENDER_TIMEOUT_MS = 90_000;
+  //
+  // 45s 这个值是「外层预算 ÷ 浏览器数」倒推出来的，不是随手调的：
+  // 调度器外层 execFile 超时 420s，本机候选浏览器最多 3 个（Edge ×2 路径 + Chrome ×2 路径
+  // 去重后可同时存在），45s × 3 = 135s，留给 waitForServer / 生成海报 / 隧道 /
+  // 裁边（自身 60s×2 次）等固定开销约 285s。
+  // 原为 90s：90×2 = 180s 与外层当时的 180s 完全相等 ⇒ 外层先杀，
+  // 实测失败耗时正好 180 秒（2026-09-28 08:31:28 → 08:34:28），日报连续失败。
+  // 改这里必须同步核对上面这个不变式（见 scripts/verify-poster-pipeline-hardening.mjs）。
+  const RENDER_TIMEOUT_MS = 45_000;
   for (const browser of browsers) {
     let timedOut = false;
     await new Promise((resolve) => {
@@ -359,7 +392,8 @@ function trimPosterPreview(previewPath) {
   if (after.height >= before.height && before.height >= 12_000) {
     console.warn(`[poster] PNG 裁边未生效：${before.width}x${before.height} → ${after.width}x${after.height}，请检查 scripts/trim-poster-preview.mjs`);
   } else {
-    console.log(`[poster] PNG 裁边 ${before.width}x${before.height} → ${after.width}x${after.height}（去掉 ${before.height - after.height}px 空白）`);
+    // 必须走 stderr：这行落在结果 JSON 之前，一旦写进 stdout 父进程就解析不到投递结果。
+    console.warn(`[poster] PNG 裁边 ${before.width}x${before.height} → ${after.width}x${after.height}（去掉 ${before.height - after.height}px 空白）`);
   }
   return after;
 }
@@ -444,7 +478,7 @@ if (!acquireDeliveryLock()) {
 }
 if (await hasDeliveredToday()) {
   deliveryLockOwned = false;
-  try { fsSync.unlinkSync(deliveryLockPath); } catch {}
+  releaseDeliveryLock();
   console.log(JSON.stringify({ ok: true, kind, skipped: true, reason: "今天同类型海报已成功发送，跳过重复投递" }));
   process.exit(0);
 }
@@ -484,7 +518,7 @@ if (kind === "weekly" && !publicBase) {
 const feishu = await sendFeishuAppBot(targetPath, targetName.replace(/\.html$/u, ""), { publicBase, previewPath });
 if (!feishu.skipped) await markDelivered(targetName, feishu.messageId || "");
 deliveryLockOwned = false;
-try { fsSync.unlinkSync(deliveryLockPath); } catch {}
+releaseDeliveryLock();
 
 console.log(JSON.stringify({
   ok: true,

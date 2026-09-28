@@ -2,7 +2,7 @@
 
 > 交接日期：2026-09-23  
 > 正式项目：`E:\新建文件夹\Codex-GPT\GameNews`  
-> 私有仓库：`https://github.com/A13612812330/GameNews`  
+> 公开仓库：`https://github.com/A13612812330/GameNews`  
 > 建议新 Agent 首先阅读本文件，再阅读 `AGENTS.md` 和 `docs/GameNews-项目介绍与运行规则.md`。
 
 ## 一、交接目标
@@ -197,7 +197,9 @@ Windows 任务：
 - `Komo-GameNews-Watchdog`：维持本地服务。
 - `Komo-GameNews-GitHub-PosterSync`：同步正式海报。
 
-注意：scheduler 只能有一个实例。历史曾出现 `database is locked`，当前工作区已有单实例租约修改，但尚未正式提交。
+注意：scheduler 只能有一个实例。历史曾出现 `database is locked`，已通过
+`data/logs/instance.lock`（O_EXCL 原子闸门）+ `scheduler.lease` 两把锁解决并提交。
+周报从 08:35 移到 08:50，是为了避开日报海报放宽后的 420s 最坏窗口（见下）。
 
 ## 十一、缓存与保留
 
@@ -214,7 +216,8 @@ Windows 任务：
 
 ## 十二、GitHub 与跨电脑恢复
 
-- 仓库为私有仓库。
+- 仓库为**公开**仓库（2026-09-28 经 GitHub API 实测 `visibility: public`，
+  此前文档写作「私有」是过期陈述）。
 - 正式日报和周报每日 09:00 自动归档。
 - SHA256 判断变化，无变化不空提交。
 - 不上传 `.env`、数据库、缓存、日志、备份和本地运行状态。
@@ -259,6 +262,8 @@ scripts/preview-daily-poster.mjs
 ## 十四、已知风险优先级
 
 ### 已于 2026-09-28 修复
+
+**海报投递链路（08:30 日报 / 周一 08:50 周报）见本节最后一条。**
 
 - **TapTap 整源静默失效**（`server/crawler/tasks.js`）。源站已从 Next.js 迁到 Nuxt，
   页内接口地址改写成 `http:\u002F\u002Fwww.taptap.cn\u002Fwebapiv2\u002F...`，
@@ -329,6 +334,42 @@ scripts/preview-daily-poster.mjs
   处理方式：`registry.js` 里该条置 `enabled:false` 并写明 `disabledReason`，
   `tasks.js` 新增**单条 URL 级 `enabled` 过滤**（平台级 `enabled` 在上方统一过滤）。
   保留登记以便追溯，同时不再每轮 0 条触发误报。
+- **日报海报连续投递失败 → 已修**（`server/scheduler.js` + `scripts/scheduled-posters.mjs`）。
+  共三层原因，缺一不可：
+  ① **超时预算倒挂**：内层单浏览器截图硬超时 `RENDER_TIMEOUT_MS = 90_000`，本机有 2 个
+  可用浏览器（Edge / Chrome）⇒ 内层最坏 90×2 = **180s**，而外层 `runPosterDelivery` 的
+  `execFile` timeout 也是 **180s**。内层总预算 = 外层上限 ⇒ 外层先杀。
+  实测失败耗时 `08:31:28 → 08:34:28`，**正好 180 秒**。
+  修法：内层收到 **45s**（≤3 个浏览器则 ≤135s），外层放宽到 **420s**，
+  留给 `waitForServer` / 生成海报 / 隧道 / 裁边（自身 60s×2 次）等固定开销约 285s。
+  ② **stdout 契约被污染**（`6190ca4` 引入的回归）：父进程用 `JSON.parse(整个 stdout)`
+  读投递结果，而该提交把裁边换成 Node 实现后，「`[poster] PNG 裁边 …`」这行用
+  `console.log` 打到了 **stdout**，且它就在结尾的结果 JSON **之前** ⇒ 解析必然语法错误。
+  后果是**日报即使截图、上传、发消息全部成功，也会被记成「海报脚本未返回可识别结果」**。
+  这条一直被①掩盖（日报从没跑到那一步），单独修①并无效。
+  「`[poster-lock] 清除僵死锁`」同样是 stdout 污染。
+  修法：子脚本所有诊断行改走 `console.warn`（stderr），并在文件头写明
+  「stdout 只允许结尾那一个结果 JSON」；父进程侧再加 `parsePosterStdout()` 兜底，
+  从 stdout 中取出最后一段 JSON，避免同类污染再次把成功误判为失败。
+  ③ **互斥粒度错了**：`let posterRunning = false` 被日报与周报**共用**，
+  日报卡住占用标志时，周报会被 `if (posterRunning) return null` **静默跳过**
+  ⇒ 周报能否发出取决于日报有没有失败。实测当天恰好是「日报被 180s 杀掉 → 标志释放
+  → 周报才得以运行」。修法：改为按 kind 分离的 `createKindLock()`（抽到
+  `server/scheduler-support.js`，因为 `scheduler.js` 一被 import 就会注册 cron，
+  内部逻辑无法被测试引用）；同 kind 并发另由子脚本的
+  `data/logs/poster-delivery-<kind>.lock` 兜底。
+  ④ 附带修的三处「静默」：失败时只留 `error.message`（一句 `Command failed: <命令>`），
+  `error.stdout` / `error.stderr` 全丢 ⇒ 现在把 `exitCode / signal / killed /
+  stdout 尾部 / stderr 尾部`（各截 1500 字符）一起写进 `cron-result.json`；
+  `writeCronLog` 是「读-改-写」，并发收尾会互相覆盖丢记录 ⇒ 改为进程内串行；
+  投递锁与调度锁的 `try { unlinkSync } catch {}` ⇒ 失败改为 `console.warn` 留痕
+  （09-28 实测 weekly 投递成功但 `poster-delivery-weekly.lock` 残留，原因被吞掉）。
+  反证脚本 `scripts/verify-poster-pipeline-hardening.mjs`（6 组 / 26 条断言）；
+  配套 `scripts/counterproof-poster-pipeline.sh` 会逐项打坏实现并确认变红，
+  **8 项打坏全部命中**（外层超时、内层超时、kind 锁退化、裁边日志回 stdout、
+  去掉兜底解析、丢掉 stdout、周报回 08:35、TTL 缩小），还原后全绿。
+  入口：`npm run check:poster` / `npm run counterproof:poster`。
+  **尚未生效**：生产实例需重启才会加载新代码。
 
 ### 待决策 / 未修
 
@@ -417,6 +458,9 @@ npm run build
 - 无持续 SQLite 锁。
 - 无重复飞书投递。
 - `data/logs/cron-result.json` 记录正确。
+- 海报链路改动额外跑：`npm run check:poster`（应 26 通过 / 0 失败），
+  改过断言或实现后跑 `npm run counterproof:poster`（8 项打坏应全部变红，
+  若某项「仍绿」说明该断言恒真，必须重写）。
 
 ### 海报修改
 
@@ -424,6 +468,8 @@ npm run build
 - 检查图片、文字溢出和底部长留白。
 - 验证同日重复执行不会再次发送。
 - 周报公开 HTML 和主图均可访问。
+- 不要在 `scripts/scheduled-posters.mjs` 里用 `console.log` 打诊断信息 ——
+  stdout 只允许结尾那一个结果 JSON，否则父进程会报「未返回可识别结果」。
 
 ## 十七、接手必读文件
 
