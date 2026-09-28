@@ -327,7 +327,7 @@ EDGE_BIN
 
 | 任务 | 用途 |
 |---|---|
-| `Komo-GameNews-Watchdog` | 保持 64424 / 64425 运行；登录触发 + 每 5 分钟自愈，无执行时限 |
+| `Komo-GameNews-Watchdog` | 每分钟一次健康检查（脚本无参数＝检查一次即退），自动拉起 64424 / 64425 |
 | `Komo-GameNews-GitHub-PosterSync` | 每日 09:00 同步正式日报/周报到公开 GitHub |
 
 ### 调度注意事项
@@ -500,10 +500,11 @@ https://github.com/A13612812330/GameNews
   `calendar/v1/upcoming` 已废弃，「今日游戏」改走 `calendar/v1/event-list`
   （按天返回 `list_a/b/c`，强制 `day=<unix 秒>`）。修复后候选 0 → 91，48h 入库 78 条。
   未修：`hashtags` 入口（源站 `/forum/hot/hashtags` 已 302 到 `/forum`，功能下线）。
-- **Watchdog 停摆与自愈**（`scripts/gamenews-watchdog.ps1`）。原任务 `/SC ONLOGON`
-  只在登录时跑一次；循环体无 try/catch，单次异常即整体退出且不留日志。
-  已改为「登录触发 + 每 5 分钟自愈 + 无执行时限」，并加启动失败日志。
-  反证：杀掉 64424 后 3 秒内自动拉起。
+- **Watchdog 停摆与自愈**（`scripts/gamenews-watchdog.ps1`）。两层原因：
+  ① 任务 `/SC ONLOGON` 只在登录时跑一次，常驻守护被杀后无人重启；
+  ② 动作直连 `powershell.exe -File` 时，任务实例会以 `0xC000013A` 提前终止常驻进程。
+  最终改为**一次性健康检查**（脚本无参数即检查一次后退出，任务每分钟调用），
+  短命进程正常退出（result 0）。反证：杀掉 64424 → 3 秒内拉起。
 
 ### P0
 

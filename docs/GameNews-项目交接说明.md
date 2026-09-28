@@ -266,10 +266,13 @@ scripts/preview-daily-poster.mjs
   同时 `calendar/v1/upcoming` 已废弃（恒返回空 list），「今日游戏」改走
   `calendar/v1/event-list`（按天返回 `list_a/b/c`，强制 `day=<unix 秒>`）。
   修复后候选 0 → 91，48h 入库 78 条。
-- **Watchdog 停摆**（`scripts/gamenews-watchdog.ps1`）。原任务用 `/SC ONLOGON`，
-  只在登录时跑一次；脚本循环体没有 try/catch，单次异常即整体退出且不留任何日志，
-  于是 64424 / 64425 长期无人守护。已改为「登录触发 + 每 5 分钟自愈 + 无执行时限」，
-  循环体加 try/catch 与启动失败日志。反证：杀掉 64424 后 3 秒内自动拉起。
+- **Watchdog 停摆**（`scripts/gamenews-watchdog.ps1`）。两层原因叠加：
+  ① 任务用 `/SC ONLOGON`，只在登录时跑一次，常驻守护被杀后无人重启
+  （实测停摆于 09-21，结果码 `3221225786`）；② 即使加了重复触发，动作直连
+  `powershell.exe -File` 时，任务实例会以 `0xC000013A` 提前终止那个常驻进程。
+  最终改为**一次性健康检查**：脚本无参数即「检查一次就退出」，由任务每分钟调用一次，
+  进程短命、正常退出（result 0），彻底绕开这类问题。
+  反证：杀掉 64424 → 3 秒内拉起，任务结果 0。
 - 遗留未修：`hashtags` 入口 —— 源站 `/forum/hot/hashtags` 已 302 到 `/forum`，
   热榜话题功能整体下线，无等效替代接口。
 
