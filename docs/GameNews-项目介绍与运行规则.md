@@ -499,12 +499,40 @@ https://github.com/A13612812330/GameNews
   旧提取正则只认 `\/` 一种转义 ⇒ 5 个入口全部 0 条且 `error=null`。
   `calendar/v1/upcoming` 已废弃，「今日游戏」改走 `calendar/v1/event-list`
   （按天返回 `list_a/b/c`，强制 `day=<unix 秒>`）。修复后候选 0 → 91，48h 入库 78 条。
-  未修：`hashtags` 入口（源站 `/forum/hot/hashtags` 已 302 到 `/forum`，功能下线）。
-- **Watchdog 停摆与自愈**（`scripts/gamenews-watchdog.ps1`）。两层原因：
+- **Watchdog 停摆与自愈**（`scripts/gamenews-watchdog.ps1`）。三层原因：
   ① 任务 `/SC ONLOGON` 只在登录时跑一次，常驻守护被杀后无人重启；
-  ② 动作直连 `powershell.exe -File` 时，任务实例会以 `0xC000013A` 提前终止常驻进程。
-  最终改为**一次性健康检查**（脚本无参数即检查一次后退出，任务每分钟调用），
-  短命进程正常退出（result 0）。反证：杀掉 64424 → 3 秒内拉起。
+  ② 动作直连 `powershell.exe -File` 时，任务实例会以 `0xC000013A` 提前终止常驻进程；
+  最终改为**一次性健康检查**（脚本无参数即检查一次后退出，任务每分钟调用）。
+  ③ **登录触发器挂 `Repetition` 不生效**：它只在登录事件真发生后计时，重新注册任务
+  不会补一次登录 ⇒ `NextRunTime` 为空、实测停摆。已换成**时间触发器（每天 00:00）
+  + 每 1 分钟重复 / 3650 天 / 到期不停任务**。反证：两次杀 64424 → 15 秒 / 20 秒拉起。
+- **`hashtags` 入口**：源站 `/forum/hot/hashtags` 已 302 到 `/forum`，旧选择器
+  `hot-hashtag-item` 0 次出现；但 `HotHashtagItem` 资源仍在预加载、`/forum` 有
+  `<div data-column-id="hashtags">` 列切换条（纯 JS 按钮），说明是改成了 tab、接口待定位。
+  处理：`registry.js` 该条置 `enabled:false` + `disabledReason`，`tasks.js` 支持
+  单条 URL 级 `enabled` 过滤。保留登记、暂不抓取，避免每轮 0 条误报。
+- **「整源 0 条」告警已实现**：连续 3 轮「完成且 0 条且无 `error`」产出
+  `SOURCE_SILENT_ZERO`（`data/crawler/zero-streak.json` → `/api/crawl/monitor` 的
+  `alerts`，同时写 `⚠️` 事件与定时日志）。阈值依据实测：健康源从未连续 3 次为 0，
+  TapTap 事故期连续 3~4 次。反证脚本 `scripts/verify-silent-source-alert.mjs`。
+- **定时流水线接入监控**（`server/scheduler.js`）：定时跑现在也进监控历史，
+  不再只有手动抓取可见。手动抓取占用监控时自动让位。
+- **`database is locked` 加固**（`server/database.js`）：补 `PRAGMA busy_timeout = 10000`。
+  此前只设 WAL、未设 timeout，默认 0 导致并发写立刻失败，
+  `runtime-logs/local-services/GameNews-api.log` 里累计 **121 次**、几乎每个整点的
+  `monitor-hourly` 都整轮失败。
+
+### 待决策 / 未修
+
+- **64424 被两套守护同时负责**（跨项目，需确认）：本项目 `Komo-GameNews-Watchdog`
+  （每分钟）与工作区级 `Komo-Local-News-Services`
+  （`tools\local-services\watch-local-news-services.ps1`，每 300 秒，另管 64423 / 64111）。
+  两者都按端口判活并各自启动实例，是 `database is locked` 的主要来源之一。建议二选一。
+- `published-posters/assets` 无保留窗口；`data/backups` 139M + `data/weekly-snapshots`
+  113M 无上限。
+- 抓取器在工作区守护的调用环境下可能撞到 `Path`/`PATH` 重复环境键，`Start-Process`
+  报 `Item has already been added. Key in dictionary: 'Path'`；该失败只写进
+  `logs/watchdog.log`，属同类「静默」，建议加降级启动路径并上报监控。
 
 ### P0
 
@@ -514,11 +542,12 @@ https://github.com/A13612812330/GameNews
 ### P1
 
 - `.snapshots` 约 1.29 GiB，缺少自动生命周期。
-- 采集源「0 条」不告警：整源归零时日志只留 `error=null`，需人工比对条数才能发现。
-- `published-posters/assets` 无保留窗口，已 121 MB / 13 个日期目录，随期数线性增长。
+- ~~采集源「0 条」不告警~~ → 已实现连击告警；残余：尚未接入飞书机器人推送。
+- `published-posters/assets` 无保留窗口，已随期数线性增长。
 - 去重器处理“测试服”的规则与业务要求冲突。
 - README 仍包含已停用来源。
 - 缓存文档中同时存在 48 小时、7 天、30 天、90 天等旧口径。
+- `server/dailyPoster.js` 的日报版式改版（活动区按内容分块、标点对齐换行、即将上线一行 5 个、热榜改排行榜）已经项目负责人逐版确认，但代码与产物均**未提交**，改动与稳定性修复混在同一工作区里。
 - `server/dailyPoster.js` 的日报版式改版（活动区按内容分块、标点对齐换行、即将上线一行 5 个、热榜改排行榜）已经项目负责人逐版确认，但代码与产物均**未提交**，改动与稳定性修复混在同一工作区里。
 
 ### P2

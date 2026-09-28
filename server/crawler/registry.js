@@ -12,7 +12,11 @@ export const PLATFORMS = Object.freeze([
     ], enabled:true, fixed:true },
   { id:"ref-taptap", name:"TapTap", category:"手游",
     urls:[
-      {url:"https://www.taptap.cn/forum/hot/hashtags", type:"hashtags", label:"热榜话题"},
+      // 上游已下线：/forum/hot/hashtags 现 302 到 /forum，旧选择器 hot-hashtag-item 在新页面 0 次出现；
+      // 热榜话题改由 /forum 的「hashtags」列（纯 JS 按钮）承载，接口尚未定位。
+      // 保留登记以便追溯，暂不参与抓取，避免每轮 0 条触发静默失效告警。
+      {url:"https://www.taptap.cn/forum/hot/hashtags", type:"hashtags", label:"热榜话题（上游已下线）", enabled:false,
+       disabledReason:"上游 302 到 /forum，hot-hashtag-item 选择器消失；新入口为 /forum 的 hashtags 列，接口待定位（2026-09-28 探测）"},
       {url:"https://www.taptap.cn/upcoming", type:"upcoming", label:"即将上线"},
       {url:"https://www.taptap.cn/app-calendar", type:"appCalendar", label:"新游日历"},
       {url:"https://www.taptap.cn/top/download/new", type:"newDownloads", label:"新品榜（今日）"},

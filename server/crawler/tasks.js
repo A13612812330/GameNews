@@ -457,6 +457,8 @@ export async function crawlCandidates(
   for (const p of platforms) {
     // 遍历该平台所有URL
     for (const urlEntry of p.urls || []) {
+      // 单条 URL 可单独停用（上游下线但保留登记时用），平台级 enabled 仍在上方统一过滤。
+      if (typeof urlEntry === "object" && urlEntry.enabled === false) continue;
       const url = typeof urlEntry === "string" ? urlEntry : urlEntry.url;
       const urlType =
         typeof urlEntry === "string" ? "default" : urlEntry.type || "default";

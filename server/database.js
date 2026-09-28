@@ -22,6 +22,10 @@ const db = new DatabaseSync(path.join(dataDir, "game-news-hub.sqlite"));
 
 db.exec(`
   PRAGMA journal_mode = WAL;
+  -- WAL 下写锁仍是排他的：默认 busy_timeout=0 会让任何并发写立刻抛
+  -- "database is locked"，而不是等一下。实测 runtime-logs 里该报错累计 121 次，
+  -- 几乎每个整点的 monitor-hourly 都因此整轮失败。给 10 秒等待窗口。
+  PRAGMA busy_timeout = 10000;
 
   CREATE TABLE IF NOT EXISTS sources (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL,

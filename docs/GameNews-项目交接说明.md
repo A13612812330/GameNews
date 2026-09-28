@@ -266,15 +266,62 @@ scripts/preview-daily-poster.mjs
   同时 `calendar/v1/upcoming` 已废弃（恒返回空 list），「今日游戏」改走
   `calendar/v1/event-list`（按天返回 `list_a/b/c`，强制 `day=<unix 秒>`）。
   修复后候选 0 → 91，48h 入库 78 条。
-- **Watchdog 停摆**（`scripts/gamenews-watchdog.ps1`）。两层原因叠加：
+- **Watchdog 停摆**（`scripts/gamenews-watchdog.ps1`）。三层原因叠加：
   ① 任务用 `/SC ONLOGON`，只在登录时跑一次，常驻守护被杀后无人重启
   （实测停摆于 09-21，结果码 `3221225786`）；② 即使加了重复触发，动作直连
-  `powershell.exe -File` 时，任务实例会以 `0xC000013A` 提前终止那个常驻进程。
-  最终改为**一次性健康检查**：脚本无参数即「检查一次就退出」，由任务每分钟调用一次，
-  进程短命、正常退出（result 0），彻底绕开这类问题。
-  反证：杀掉 64424 → 3 秒内拉起，任务结果 0。
-- 遗留未修：`hashtags` 入口 —— 源站 `/forum/hot/hashtags` 已 302 到 `/forum`，
-  热榜话题功能整体下线，无等效替代接口。
+  `powershell.exe -File` 时，任务实例会以 `0xC000013A` 提前终止那个常驻进程；
+  最终改为**一次性健康检查**：脚本无参数即「检查一次就退出」，由任务每分钟调用。
+  ③ **登录触发器上挂重复根本不生效**：`<LogonTrigger><Repetition>` 只在登录事件
+  真正发生后才开始计时，任务重新注册不会补一次登录 ⇒ `NextRunTime` 为空、
+  实际停摆。已把触发器换成**时间触发器 + 每 1 分钟重复（3650 天，到期不停任务）**，
+  改完 `NextRunTime` 立即有值。`Set-ScheduledTask -Trigger` 单独用可行；
+  同时传 `-Settings` 会因生成的 `RestartOnFailure` 缺 `Count` 而报
+  `The task XML is missing a required element or attribute`。
+  反证：两次杀 64424 → 分别 15 秒 / 20 秒被拉起（pid 12548 / 7836），日志有
+  `started server/index.js`。
+- **采集源「0 条」不告警 → 已实现**（`server/crawler/monitor.js`）。新增
+  「完成但 0 条且 `error` 为空」的**连击计数**，连续 3 轮即产出 `SOURCE_SILENT_ZERO`
+  告警（写 `data/crawler/zero-streak.json`，经 `/api/crawl/monitor` 的 `alerts`
+  暴露，并在 `finishMonitor` 里写成 `⚠️` 事件、在定时日志里逐条打印）。
+  阈值有实测依据：本机 20 轮历史里健康源（好游/游民/机核/Steam）的
+  `completed && count=0` **从未连续出现 3 次**，而 TapTap 事故期多个 urlType
+  连续 3~4 轮为 0。单轮 0 条按正常处理（当日无新内容或全部命中去重）。
+  反证脚本 `scripts/verify-silent-source-alert.mjs`（6 场景，含 3 个反向对照）。
+- **定时流水线不进监控 → 已接入**（`server/scheduler.js`）。此前 `beginMonitor` /
+  `finishMonitor` 只在手动抓取接口里调用，定时跑得怎么样页面上看不到 —— 这正是
+  「TapTap 静默失效 7 天没人发现」的结构性原因。现在 `runMonitorPipeline` 与
+  `runPipeline` 都会 `beginMonitor` / `reportSourceProgress` / `finishMonitor`；
+  手动抓取占用监控时自动让位（`isMonitorBusy()`），`finally` 里有兜底收口，
+  避免监控卡在 `active` 让后续轮次不敢接管。
+- **`database is locked` 大面积失败 → 已加固**（`server/database.js`）。
+  原先只设了 `journal_mode=WAL`，没设 `busy_timeout`；node:sqlite 默认
+  `busy_timeout=0`，任何并发写（子进程维护脚本、第二实例）都会立刻抛
+  `database is locked` 而不是等待。`runtime-logs/local-services/GameNews-api.log`
+  里该报错累计 **121 次**，几乎每个整点的 `monitor-hourly` 都整轮失败。
+  已加 `PRAGMA busy_timeout = 10000`（实测 `PRAGMA busy_timeout` 返回 10000）。
+- **`hashtags` 入口**：源站 `/forum/hot/hashtags` 已 302 到 `/forum`，旧选择器
+  `hot-hashtag-item` 在新页面 0 次出现。深挖发现 `HotHashtagItem` 的 CSS/JS
+  **仍在预加载**，且 `/forum` 页面有 `<div data-column-id="hashtags">` 列切换条
+  （纯 JS `<button>`，无链接、无参数）⇒ 功能没删，只是变成了 tab，接口待定位。
+  处理方式：`registry.js` 里该条置 `enabled:false` 并写明 `disabledReason`，
+  `tasks.js` 新增**单条 URL 级 `enabled` 过滤**（平台级 `enabled` 在上方统一过滤）。
+  保留登记以便追溯，同时不再每轮 0 条触发误报。
+
+### 待决策 / 未修
+
+- **64424 被两套守护同时负责**（跨项目，需确认后再动）：
+  ① 本项目 `Komo-GameNews-Watchdog`（每分钟、项目自带）；
+  ② 工作区级 `Komo-Local-News-Services`
+  （`E:\新建文件夹\Codex-GPT\tools\local-services\watch-local-news-services.ps1`，
+  每 300 秒一轮，同时管 GameNews API 64424 / 前端 64423 / NewgameWiki 64111）。
+  两者都按端口判活并各自启动实例，是 `database is locked` 的主要来源之一。
+  建议只保留一套（二选一），涉及工作区文件，需先确认。
+- 归档体积无上限：`data/backups` 139M、`data/weekly-snapshots` 113M（合计 252M）。
+- `published-posters/assets` 无滚动保留窗口。
+- 抓取器在工作区守护的调用环境下可能撞到 `Path`/`PATH` 重复环境键
+  （`Start-Process` 报 `Item has already been added. Key in dictionary: 'Path'`）；
+  项目自带 watchdog 在计划任务环境下实测正常，但该失败只写进
+  `logs/watchdog.log`，属同类「静默」。可考虑加降级启动路径并把失败上报到监控。
 
 ### P0
 
@@ -284,8 +331,8 @@ scripts/preview-daily-poster.mjs
 ### P1
 
 - `.snapshots` 约 1.29 GiB。
-- 采集源「0 条」不告警：整源归零时日志只留 `error=null`，要靠人工比对条数才发现
-  （TapTap 就是因此静默失效了 7 天）。
+- ~~采集源「0 条」不告警~~ → 已实现连击告警（见上「已于 2026-09-28 修复」）。
+  残余：告警只在 `/api/crawl/monitor` 与日志里，尚未接入飞书机器人推送。
 - 测试服归一与独立版本业务要求冲突。
 - README 来源列表与正式 registry 不一致。
 - 48 小时、7 天、30 天、90 天保留口径冲突。

@@ -8,6 +8,14 @@ import { crawlCandidates, crawlDetails } from "./crawler/tasks.js";
 import { generateRichDraft, generateBriefHtml } from "./content/generator.js";
 import { listTodayArticles, listArticles, saveBrief, db } from "./database.js";
 import { isCrawlerPaused, crawlerPauseMessage } from "./crawler/pause.js";
+import {
+  beginMonitor,
+  finishMonitor,
+  isMonitorBusy,
+  reportSourceProgress,
+  standingAlerts,
+  updateMonitor,
+} from "./crawler/monitor.js";
 import { finalizeCrawlRun } from "./crawlFinalize.js";
 import { syncFeishuTopicMonitor } from "./feishuTopicMonitor.js";
 import { writeWeeklyPoster } from "./weeklyPoster.js";
@@ -153,6 +161,13 @@ async function writeCronLog(label, detail) {
   } catch (e) { console.error("[cron-log]", e.message); }
 }
 
+/** 定时流水线也要把「静默失效」打进日志，否则又回到没人发现的旧状态。 */
+function logStandingAlerts(log) {
+  const alerts = standingAlerts();
+  for (const alert of alerts) log(`  ⚠️ ${alert.message}`);
+  return alerts;
+}
+
 /**
  * 高频监控流水线：只负责手游新游/活动、飞书文档和提醒机器人。
  * 不刷新 RAW，不生成今日简讯，不生成海报。
@@ -169,10 +184,17 @@ async function runMonitorPipeline(label = "monitor-hourly") {
   monitorRunning = true;
   const startedAt = new Date().toISOString();
   const log = (...args) => console.log(`[${label} ${startedAt.slice(11, 19)}]`, ...args);
+  // 定时跑也要进监控历史，否则页面只记录手动抓取，定时静默失效永远看不见。
+  // 手动抓取占用监控时让位，避免两轮互相覆盖状态。
+  const ownMonitor = !isMonitorBusy();
+  if (ownMonitor) beginMonitor("定时监控", { stage: "list", sourceIds: MOBILE_SOURCES });
   try {
     log("监控流水线启动");
     log("Step 1/3 抓取 TapTap/好游快爆候选...");
-    const crawlResults = await crawlCandidates(MOBILE_SOURCES);
+    const crawlResults = await crawlCandidates(
+      MOBILE_SOURCES,
+      ownMonitor ? { onProgress: (progress) => reportSourceProgress(progress) } : {},
+    );
     const candidateIds = crawlResults
       .flatMap((result) => (result.candidates || []).map((candidate) => candidate.id))
       .filter(Boolean);
@@ -180,9 +202,11 @@ async function runMonitorPipeline(label = "monitor-hourly") {
 
     log("Step 2/3 补全新增或变化详情...");
     if (candidateIds.length) {
+      if (ownMonitor) updateMonitor({ stage: "detail", currentSource: "详情与图片" }, `正在补全 ${candidateIds.length} 条资讯详情`);
       const details = await crawlDetails(candidateIds);
       const success = (details.perPlatform || []).reduce((sum, item) => sum + (item.successCount || 0), 0);
       const failed = (details.perPlatform || []).reduce((sum, item) => sum + (item.failCount || 0), 0);
+      if (ownMonitor) updateMonitor({ stage: "detail", details: details.perPlatform || [] }, "定时监控详情与图片补全完成");
       log(`  ✓ 详情 ${success} 篇成功${failed ? `，${failed} 篇失败` : ""}`);
     } else {
       log("  - 没有需要补全的详情");
@@ -197,15 +221,24 @@ async function runMonitorPipeline(label = "monitor-hourly") {
         ? `发送失败：${notification.error}`
         : notification.reason || "未发送";
     log(`  ✓ 飞书新增 ${sync.inserted || 0} 条，机器人${notificationStatus}`);
+    if (ownMonitor) {
+      finishMonitor(
+        { stage: "completed", results: crawlResults },
+        `定时监控结束，候选 ${candidateIds.length} 条`,
+      );
+    }
+    const alerts = logStandingAlerts(log);
     await writeCronLog(label, {
       success: true,
       candidates: candidateIds.length,
       inserted: sync.inserted || 0,
       notification: sync.notification || null,
+      alerts: alerts.map((alert) => ({ sourceId: alert.sourceId, urlType: alert.urlType, streak: alert.streak })),
     });
     return sync;
   } catch (error) {
     log(`  ✗ ${error.message}`);
+    if (ownMonitor) finishMonitor({ stage: "failed", error: error.message }, "定时监控失败");
     await writeCronLog(label, { success: false, error: error.message });
     return null;
   } finally {
@@ -226,6 +259,20 @@ async function runPipeline(label = "daily", maxSections = 12, { syncMonitor = tr
   pipelineRunning = true;
   const startedAt = new Date().toISOString();
   const log = (...args) => console.log(`[${label} ${startedAt.slice(11, 19)}]`, ...args);
+  // 定时流水线同样进监控历史；手动抓取占用监控时让位。
+  // 用 closeMonitor 统一收口，避免重复 finish 或异常路径漏收尾。
+  let monitorOpen = !isMonitorBusy();
+  const ownMonitor = monitorOpen;
+  const closeMonitor = (patch, message) => {
+    if (!monitorOpen) return;
+    monitorOpen = false;
+    finishMonitor(patch, message);
+  };
+  if (ownMonitor) {
+    beginMonitor(label === "morning" ? "早间流水线" : label === "afternoon" ? "午间流水线" : "定时流水线", {
+      stage: "list",
+    });
+  }
   try {
     log("流水线启动");
 
@@ -233,10 +280,17 @@ async function runPipeline(label = "daily", maxSections = 12, { syncMonitor = tr
     log("Step 1/5 候选抓取...");
     let crawlResults;
     try {
-      crawlResults = await crawlCandidates();
+      crawlResults = await crawlCandidates(
+        undefined,
+        ownMonitor ? { onProgress: (progress) => reportSourceProgress(progress) } : {},
+      );
       const total = crawlResults.reduce((s, r) => s + (r.count || 0), 0);
       log(`  ✓ ${total} 条新候选`);
-    } catch (e) { log(`  ✗ ${e.message}`); return null; }
+    } catch (e) {
+      log(`  ✗ ${e.message}`);
+      closeMonitor({ stage: "failed", error: e.message }, "定时流水线候选抓取失败");
+      return null;
+    }
 
     // 2. 定时任务生成的是可直接阅读的今日简讯，因此对本轮候选直接补全文、图片和布局。
     // 手动“抓取资讯”仍保留人工选择入口；Firecrawl 仅在普通详情抓取失败时回退。
@@ -386,10 +440,17 @@ async function runPipeline(label = "daily", maxSections = 12, { syncMonitor = tr
     log(`  ✓ 归档 ${archiveFile}`);
     } catch (e) { log(`  ✗ ${e.message}`); await writeCronLog(label, { success: false, error: e.message }); }
 
+    closeMonitor(
+      { stage: "completed", results: crawlResults, raw: rawSnapshot },
+      `定时流水线结束，候选 ${crawlResults.reduce((s, r) => s + (r.count || 0), 0)} 条`,
+    );
+    logStandingAlerts(log);
     log("完成");
     await writeCronLog(label, { success: true, sections: brief?.sections?.length || 0, articles: finalArticleCount });
     return brief;
   } finally {
+    // 异常路径兜底：只要监控还由本轮持有就收尾，避免监控卡在 active 让后续轮次不敢接管。
+    closeMonitor({ stage: "failed", error: "流水线异常终止" }, "定时流水线异常终止");
     pipelineRunning = false;
   }
 }
