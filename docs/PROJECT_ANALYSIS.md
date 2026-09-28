@@ -115,7 +115,9 @@ flowchart TD
 
 - 每日 08:30：`runPipeline("morning")`
 - 每日 17:50：`runPipeline("afternoon")`
-- 每周一 08:35：`runWeeklyBrief()`，近 7 天已确认文章按游戏聚合 Top 10
+- 每周一 09:00：`runWeeklyBrief()`，近 7 天已确认文章按游戏聚合 Top 10
+  （原为 08:35 → 08:50 → 09:00，每次挪动都是为了避开日报海报的最坏窗口；现为
+  日报外层 600s × 2 次尝试 + 30s 间隔 ≈ 21 分钟 ⇒ 08:30 + 21min = 08:51）
 
 ## 前端模块与规则
 

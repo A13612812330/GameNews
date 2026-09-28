@@ -11,6 +11,14 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  applyImagePlaceholders,
+  buildScreenshotArgs,
+  planCanvasHeight,
+  probeImageReachability,
+  probeTargets,
+  summarizeImageProbe,
+} from "./poster-render-guard.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = path.join(projectRoot, "output");
@@ -37,10 +45,30 @@ function shanghaiDateKey(now = new Date()) {
   return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
 }
 
-// 锁的年龄兜底阈值。调度器给海报脚本设了 420s 超时（server/scheduler.js 的
-// runPosterDelivery），所以超过 10 分钟的锁不可能是「真的还在投递」。
+// 锁的年龄兜底阈值。调度器给海报脚本设了 600s 超时（server/scheduler.js 的
+// runPosterDelivery），所以超过 15 分钟的锁不可能是「真的还在投递」。
 // 不变式：DELIVERY_LOCK_TTL_MS > 外层 execFile 超时，否则会把真实投递的锁抢掉。
-const DELIVERY_LOCK_TTL_MS = 10 * 60 * 1000;
+const DELIVERY_LOCK_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * 截图画布高度策略。
+ *
+ * 实测归档 PNG 裁边后的真实高度：09-22 = 4066px、09-28 = 4063px。而旧实现固定
+ * --window-size=1100,12000 ⇒ 每次都有约 8000px（2/3）的纯空白被渲染、编码、再裁掉。
+ * 从 6000px 起步可以省下这部分成本（截图更快 ⇒ 更不容易撞上内层超时）。
+ *
+ * 代价是「内容超出画布会被静默截断」，所以配 planCanvasHeight() 兜底：
+ * 裁边后仍贴着底边 ⇒ 判定截断 ⇒ 按 ×2 加高重截（6000 → 12000 → 24000 上限）。
+ * 12000 这一档正好等于旧实现的固定高度，因此最坏情况不会比以前更差。
+ */
+const INITIAL_CANVAS_HEIGHT = 6000;
+const MAX_CANVAS_RETRIES = 2;
+const CANVAS_GROWTH = 2;
+const MAX_CANVAS_HEIGHT = 24000;
+
+// headless 专用 profile：见 poster-render-guard.mjs buildScreenshotArgs 的说明
+// （避免 --screenshot 被转交给正在运行的 GUI 实例 ⇒ 秒退且不落盘）。
+const browserProfileDir = path.join(projectRoot, "data", "poster-browser-profile");
 
 /**
  * 判断锁文件是否为僵死残留。
@@ -283,75 +311,151 @@ async function previewBrowsers() {
   return found;
 }
 
-async function renderPosterPreview(filePath) {
-  const browsers = await previewBrowsers();
-  if (!browsers.length) throw new Error("未找到可用于生成海报图片的 Edge/Chrome 浏览器");
-  const previewPath = filePath.replace(/\.html$/u, ".png");
+/** 把 output 下的文件路径转成对外可访问的静态地址。 */
+function staticUrlFor(filePath) {
   const localPath = path.relative(outputRoot, filePath).split(path.sep).map((segment) => encodeURIComponent(segment)).join("/");
-  const pageUrl = `${serverBase.replace(/\/$/u, "")}/generated-output/${localPath}`;
-  // 飞书消息直接上传此 PNG。今日海报的活动卡片数量会随日变化，1950px 会把
-  // 页面下半部分直接截掉；统一使用足够高的完整画布，避免把“打开完整海报”变成
-  // 唯一可读入口。12000px 也覆盖当前周报的长图范围。
-  const height = "12000";
-  // Edge 153 起无头 screenshot 在部分环境下会静默退出（秒退且不落盘），
-  // 因此逐个浏览器尝试，直到截图文件真正生成。
-  // 单次截图硬超时。--screenshot 要等页面 load 事件，只要有一张走 /api/image-proxy
-  // 的图始终不返回，浏览器进程就不会退出；而原实现只监听 close，于是一直等下去
-  // （实测 2026-09-28 卡死 8 分钟以上、PNG 始终不落盘，投递锁也被一直占住）。
-  // 超时后终止该浏览器并继续尝试下一个，避免单张图把整条投递链路拖死。
-  //
-  // 45s 这个值是「外层预算 ÷ 浏览器数」倒推出来的，不是随手调的：
-  // 调度器外层 execFile 超时 420s，本机候选浏览器最多 3 个（Edge ×2 路径 + Chrome ×2 路径
-  // 去重后可同时存在），45s × 3 = 135s，留给 waitForServer / 生成海报 / 隧道 /
-  // 裁边（自身 60s×2 次）等固定开销约 285s。
-  // 原为 90s：90×2 = 180s 与外层当时的 180s 完全相等 ⇒ 外层先杀，
-  // 实测失败耗时正好 180 秒（2026-09-28 08:31:28 → 08:34:28），日报连续失败。
-  // 改这里必须同步核对上面这个不变式（见 scripts/verify-poster-pipeline-hardening.mjs）。
-  const RENDER_TIMEOUT_MS = 45_000;
+  return `${serverBase.replace(/\/$/u, "")}/generated-output/${localPath}`;
+}
+
+/**
+ * 生成截图专用的「渲染副本」：把探测判定不可达的图片换成内联占位图。
+ *
+ * 动机：--screenshot 要等页面 load 事件，而日报海报实测有 58 张 <img> 全部指向本机
+ * /api/image-proxy（该路由内部 12s 超时）。任意一张上游慢，load 就被推迟；多张叠加
+ * 即可击穿内层 45s 截图预算 ⇒ PNG 不落盘 ⇒ 当天没有海报。
+ *
+ * 边界（别误读）：本机实测 58 张全部可达、完整下载仅 145ms，所以这**不是** 2026-09-28
+ * 卡死的根因，而是一道防御 —— 把「某天某张图挂掉」从「整天没有海报」降级成
+ * 「海报里少一张图」，并把失败原因写进结果 JSON。
+ *
+ * 归档原件**不改**（它是要发布到 GitHub Pages 的产物，不能被占位图污染），
+ * 只多写一份 <名字>.render.html 供截图使用，用完即删。
+ */
+async function prepareRenderCopy(filePath) {
+  const html = await fs.readFile(filePath, "utf8");
+  const targets = probeTargets(html, { serverBase });
+  if (!targets.length) return { url: staticUrlFor(filePath), imageProbe: null, renderPath: "" };
+  const probe = await probeImageReachability(targets.map((target) => target.resolved));
+  const summary = summarizeImageProbe(probe);
+  console.warn(summary.line);
+  const failed = probe.failed.map((item) => item.url);
+  if (!failed.length) {
+    return { url: staticUrlFor(filePath), imageProbe: { ...summary.fields, replaced: 0, unmatched: 0 }, renderPath: "" };
+  }
+  const applied = applyImagePlaceholders(html, failed, { serverBase });
+  const renderPath = filePath.replace(/\.html$/u, ".render.html");
+  await fs.writeFile(renderPath, applied.html, "utf8");
+  console.warn(`[poster] 渲染副本 ${path.basename(renderPath)}：替换 ${applied.replaced} 张占位图，未匹配 ${applied.unmatched} 张`);
+  return { url: staticUrlFor(renderPath), renderPath, imageProbe: { ...summary.fields, replaced: applied.replaced, unmatched: applied.unmatched } };
+}
+
+/**
+ * 用一次 --screenshot 抓长图：逐个候选浏览器尝试，直到 PNG 真正落盘。
+ * 返回值带上「哪个浏览器成功了」，供加高重截时只复用那一个（否则每轮都把全部
+ * 浏览器重试一遍，最坏耗时直接翻倍）。
+ */
+async function captureScreenshot(browsers, { previewPath, height, pageUrl, timeoutMs }) {
+  // 必须先删旧 PNG：否则加高重截时会把上一轮的残留文件当成「本次截图成功」。
+  await fs.rm(previewPath, { force: true });
   for (const browser of browsers) {
     let timedOut = false;
     await new Promise((resolve) => {
-      const child = spawn(browser, ["--headless", "--disable-gpu", "--hide-scrollbars", "--run-all-compositor-stages-before-draw", "--virtual-time-budget=4000", `--screenshot=${previewPath}`, `--window-size=1100,${height}`, pageUrl], { windowsHide: true });
+      const child = spawn(browser, buildScreenshotArgs({ previewPath, height, pageUrl, profileDir: browserProfileDir }), { windowsHide: true });
       const finish = () => { clearTimeout(timer); resolve(); };
       const timer = setTimeout(() => {
         timedOut = true;
         try { child.kill("SIGKILL"); } catch {}
         resolve();
-      }, RENDER_TIMEOUT_MS);
+      }, timeoutMs);
       child.once("error", finish);
       child.once("close", finish);
     });
+    const name = path.basename(path.dirname(path.dirname(browser)));
     if (timedOut) {
-      console.warn(`[poster] ${path.basename(path.dirname(path.dirname(browser)))} 截图超时 ${RENDER_TIMEOUT_MS / 1000}s，已终止并尝试下一个浏览器`);
+      console.warn(`[poster] ${name} 截图超时 ${timeoutMs / 1000}s，已终止并尝试下一个浏览器`);
+      continue;
     }
     try {
       const stat = await fs.stat(previewPath);
-      if (stat.size > 0) break;
+      if (stat.size > 0) return { ok: true, browser };
+      console.warn(`[poster] ${name} 截图未生成（0 字节），尝试下一个浏览器`);
     } catch {
-      console.warn(`[poster] ${path.basename(path.dirname(path.dirname(browser)))} 截图未生成，尝试下一个浏览器`);
+      console.warn(`[poster] ${name} 截图未生成，尝试下一个浏览器`);
     }
   }
-  try {
-    await fs.access(previewPath);
-  } catch {
-    throw new Error("海报 PNG 未能生成：所有可用浏览器的截图都失败或超时");
-  }
-  // Edge 在部分 Windows 环境会在进程退出后才完成落盘；等待文件稳定再继续。
+  return { ok: false, browser: "" };
+}
+
+/** Edge 在部分 Windows 环境会在进程退出后才完成落盘；等文件大小稳定再继续。 */
+async function settlePreviewFile(previewPath) {
   let previousSize = -1;
   for (let attempt = 0; attempt < 20; attempt += 1) {
     try {
       const stat = await fs.stat(previewPath);
-      if (stat.size > 0 && stat.size === previousSize) break;
+      if (stat.size > 0 && stat.size === previousSize) return;
       previousSize = stat.size;
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  await fs.access(previewPath);
-  // Edge 在 Windows 下可能先写入完整画布，再异步完成像素落盘；仅用文件大小
-  // 判断稳定会偶发过早。额外等待后再裁边，避免将 12000px 空白画布直接上传飞书。
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-  trimPosterPreview(previewPath);
-  return previewPath;
+}
+
+async function renderPosterPreview(filePath) {
+  const browsers = await previewBrowsers();
+  if (!browsers.length) throw new Error("未找到可用于生成海报图片的 Edge/Chrome 浏览器");
+  const previewPath = filePath.replace(/\.html$/u, ".png");
+  await fs.mkdir(browserProfileDir, { recursive: true });
+
+  // 渲染副本（把不可达图片换成内联占位图）。归档原件不动，无论成败都会删掉副本。
+  const prepared = await prepareRenderCopy(filePath);
+
+  // 单次截图硬超时。--screenshot 要等页面 load 事件，只要有一张走 /api/image-proxy
+  // 的图始终不返回，浏览器进程就不会退出；而原实现只监听 close，于是一直等下去
+  // （实测 2026-09-28 卡死 8 分钟以上、PNG 始终不落盘，投递锁也被一直占住）。
+  // 超时后终止该浏览器并继续尝试下一个，避免单张图把整条投递链路拖死。
+  //
+  // 45s 这个值是「外层预算 ÷ 最坏截图次数」倒推出来的，不是随手调的：
+  //   初始最多 3 个候选浏览器（Edge ×2 路径 + Chrome ×2 路径去重后）各试一次，
+  //   加高重截最多 2 次、每次只复用上一轮成功的那个浏览器 ⇒ 最坏 45s × (3 + 2) = 225s。
+  //   外层 execFile 600s，留给 waitForServer / 生成海报 / 隧道 / 裁边（自身 60s×2 次）
+  //   等固定开销约 375s。
+  // 历史教训：原为 90s × 2 个浏览器 = 180s 与外层当时的 180s 完全相等 ⇒ 外层先杀，
+  // 实测失败耗时正好 180 秒（2026-09-28 08:31:28 → 08:34:28），日报连续失败。
+  // 改这里必须同步核对上面这个不变式（见 scripts/verify-poster-pipeline-hardening.mjs）。
+  const RENDER_TIMEOUT_MS = 45_000;
+
+  let canvasHeight = INITIAL_CANVAS_HEIGHT;
+  let canvasNote = "";
+  let pool = browsers;
+  try {
+    for (let attempt = 0; ; attempt += 1) {
+      const capture = await captureScreenshot(pool, { previewPath, height: canvasHeight, pageUrl: prepared.url, timeoutMs: RENDER_TIMEOUT_MS });
+      if (!capture.ok) throw new Error("海报 PNG 未能生成：所有可用浏览器的截图都失败或超时");
+      await settlePreviewFile(previewPath);
+      // Edge 在 Windows 下可能先写入完整画布，再异步完成像素落盘；仅用文件大小
+      // 判断稳定会偶发过早。额外等待后再裁边，避免将空白画布直接上传飞书。
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      const trimmed = trimPosterPreview(previewPath);
+      // 裁边后仍贴着画布底边 ⇒ 内容被截断（像素根本没渲染，裁边救不回来）⇒ 加高重截。
+      const plan = planCanvasHeight({
+        canvasHeight,
+        trimmedHeight: trimmed?.height,
+        attempt,
+        maxAttempts: MAX_CANVAS_RETRIES,
+        maxCanvasHeight: MAX_CANVAS_HEIGHT,
+        growth: CANVAS_GROWTH,
+      });
+      if (!plan.retry) {
+        canvasNote = `${canvasHeight}px → ${trimmed?.width}x${trimmed?.height}（${plan.reason}）`;
+        break;
+      }
+      console.warn(`[poster] ${plan.reason}（第 ${attempt + 1}/${MAX_CANVAS_RETRIES} 次重截）`);
+      pool = capture.browser ? [capture.browser] : browsers;
+      canvasHeight = plan.height;
+    }
+  } finally {
+    if (prepared.renderPath) await fs.rm(prepared.renderPath, { force: true });
+  }
+  return { previewPath, imageProbe: prepared.imageProbe, canvas: { height: canvasHeight, note: canvasNote } };
 }
 
 function pngSize(filePath) {
@@ -505,9 +609,13 @@ await fs.mkdir(archiveRoot, { recursive: true });
 await fs.copyFile(sourcePath, targetPath);
 let publicBase = "";
 let previewPath = "";
+let renderInfo = null;
 let publicError = "";
 try {
-  if (kind !== "weekly") previewPath = await renderPosterPreview(targetPath);
+  if (kind !== "weekly") {
+    renderInfo = await renderPosterPreview(targetPath);
+    previewPath = renderInfo.previewPath;
+  }
   publicBase = await ensurePublicTunnel();
 } catch (error) {
   publicError = error.message || "HTTPS 海报访问地址不可用";
@@ -528,5 +636,9 @@ console.log(JSON.stringify({
   publicUrl: publicBase ? publicFileUrl(publicBase, targetPath) : "",
   previewPath,
   publicError,
+  // 图片可达性与画布策略一并回传：父进程会把它们写进 cron-result.json，
+  // 这样「海报里少了张图」和「内容被画布截断」都变成可查的数据，而不是靠猜。
+  imageProbe: renderInfo?.imageProbe || null,
+  canvas: renderInfo?.canvas || null,
   feishu: feishu.skipped ? feishu.reason : "sent",
 }, null, 2));

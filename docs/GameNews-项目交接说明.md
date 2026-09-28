@@ -188,7 +188,7 @@ EDGE_BIN
 | 每日 08:00–23:00 整点 | 手游监控、飞书增量同步、新增提醒 |
 | 每日 08:30 | 早报、日报海报、海报机器人 |
 | 每日 17:50 | 晚报 |
-| 周一 08:35 | 周报、海报机器人 |
+| 周一 09:00 | 周报、海报机器人 |
 | 每日 03:15 | 留档和缓存清理 |
 | 每日 09:00 | GitHub 正式海报归档 |
 
@@ -263,7 +263,7 @@ scripts/preview-daily-poster.mjs
 
 ### 已于 2026-09-28 修复
 
-**海报投递链路（08:30 日报 / 周一 08:50 周报）见本节最后一条。**
+**海报投递链路（08:30 日报 / 周一 09:00 周报）见本节最后一条。**
 
 - **TapTap 整源静默失效**（`server/crawler/tasks.js`）。源站已从 Next.js 迁到 Nuxt，
   页内接口地址改写成 `http:\u002F\u002Fwww.taptap.cn\u002Fwebapiv2\u002F...`，
@@ -340,8 +340,9 @@ scripts/preview-daily-poster.mjs
   可用浏览器（Edge / Chrome）⇒ 内层最坏 90×2 = **180s**，而外层 `runPosterDelivery` 的
   `execFile` timeout 也是 **180s**。内层总预算 = 外层上限 ⇒ 外层先杀。
   实测失败耗时 `08:31:28 → 08:34:28`，**正好 180 秒**。
-  修法：内层收到 **45s**（≤3 个浏览器则 ≤135s），外层放宽到 **420s**，
+  修法（第一轮）：内层收到 **45s**，外层放宽到 **420s**，
   留给 `waitForServer` / 生成海报 / 隧道 / 裁边（自身 60s×2 次）等固定开销约 285s。
+  （第二轮把外层进一步放宽到 600s 并引入重试，见本节末条。）
   ② **stdout 契约被污染**（`6190ca4` 引入的回归）：父进程用 `JSON.parse(整个 stdout)`
   读投递结果，而该提交把裁边换成 Node 实现后，「`[poster] PNG 裁边 …`」这行用
   `console.log` 打到了 **stdout**，且它就在结尾的结果 JSON **之前** ⇒ 解析必然语法错误。
@@ -364,12 +365,51 @@ scripts/preview-daily-poster.mjs
   `writeCronLog` 是「读-改-写」，并发收尾会互相覆盖丢记录 ⇒ 改为进程内串行；
   投递锁与调度锁的 `try { unlinkSync } catch {}` ⇒ 失败改为 `console.warn` 留痕
   （09-28 实测 weekly 投递成功但 `poster-delivery-weekly.lock` 残留，原因被吞掉）。
-  反证脚本 `scripts/verify-poster-pipeline-hardening.mjs`（6 组 / 26 条断言）；
-  配套 `scripts/counterproof-poster-pipeline.sh` 会逐项打坏实现并确认变红，
-  **8 项打坏全部命中**（外层超时、内层超时、kind 锁退化、裁边日志回 stdout、
-  去掉兜底解析、丢掉 stdout、周报回 08:35、TTL 缩小），还原后全绿。
+  反证脚本 `scripts/verify-poster-pipeline-hardening.mjs`；
+  配套 `scripts/counterproof-poster-pipeline.sh` 会逐项打坏实现并确认变红，还原后全绿。
   入口：`npm run check:poster` / `npm run counterproof:poster`。
-  **尚未生效**：生产实例需重启才会加载新代码。
+  **已重启生效**：kill 旧实例 22664 → 15 秒被 watchdog 拉起为 pid 20272，
+  `logs/server-watchdog.log` 打出新文案即为证。
+
+- **日报海报第二轮加固 → 已修**（2026-09-28，同一链路继续）。
+  **先说清楚一件事**：本轮改动**不是** 09-28 卡死的根因修复，而是一组防御 + 两项
+  已被实测证实的缺陷修复。分辨这一点很重要，避免下次误以为「已修根因」。
+  ① **图片可达性探测 + 占位替换（防御，非根因）**。截图要等页面 load 事件，而日报
+  海报有 **58 张** `<img>` 全部指向本机 `/api/image-proxy?url=…`（该路由内部 12s 超时），
+  任意一张上游慢都会推迟 load。**实测反证：58/58 全部可达、完整下载仅 145ms / 5.21MB**
+  ⇒ 图片当时不是瓶颈。因此它只作为防线存在：把「某天某张图挂掉」从
+  「整天没有海报」降级为「海报里少一张图」，并把失败原因写进 `cron-result.json`。
+  实现抽到 `scripts/poster-render-guard.mjs`（纯函数、可断言）：探测只读响应头就
+  `cancel` body，并发 12、单请求 3s、总预算 30s；**归档原件不改**（它要发布到
+  GitHub Pages，不能被占位图污染），只多写一份 `<名字>.render.html` 供截图、用完即删。
+  ② **画布高度从写死 12000px 改为 6000px 起步 + 触底自动加高**（实测依据）。
+  归档 PNG 裁边后的真实高度：**09-22 = 4066px、09-28 = 4063px**；而旧实现固定
+  `--window-size=1100,12000` ⇒ 每次有约 2/3 的像素是纯空白，白付渲染与编码成本，
+  而这笔成本正好压在「内层截图超时」上。现在 `planCanvasHeight()` 判定「裁边后仍贴着
+  画布底边 ⇒ 内容被截断（像素根本没渲染，裁边救不回来）」才按 ×2 加高重截，
+  6000 → 12000 → 24000 上限。**12000 这一档正好等于旧实现，所以最坏不比以前差**。
+  旁证：09-24/25/26 的归档 PNG 是 `1100x12000` 满画布 —— 那是旧 Python 裁边静默失效
+  时「空白画布被原样上传」的现场，说明「不裁边 + 大画布」确实发生过。
+  ③ **截图带独立 `--user-data-dir`**（`data/poster-browser-profile/`）。Edge 的
+  headless `--screenshot` 在本机已有同 profile 的 GUI 实例运行时，会把请求转交给该实例、
+  自己秒退（exit 0、约 0.1s）且**不落盘**，表现为「所有候选浏览器都截图失败」却只有一句
+  笼统报错。本机 Edge 已升到 **154.0.4258.37**（该行为在 153+ 被报告过）。
+  同时补 `--no-first-run / --no-default-browser-check / --disable-extensions`。
+  ④ **失败重试 1 次 + 三项调度常量联动**。09-27 日报失败后整天没有海报、只能人工补投，
+  而现在子脚本自带「今天已投递 → 跳过」幂等，重试不会重复发送。联动（**改一个必须改其余**）：
+  外层 `execFile` 420s → **600s**；`POSTER_ATTEMPTS = 2` + 间隔 30s ⇒ 日报最坏
+  `600s × 2 + 30s = 1230s ≈ 21 分钟`；周报 cron 08:50 → **09:00**（08:30 + 21min = 08:51，
+  留 9 分钟余量，否则最坏日报会与周报并发抢 Cloudflare 隧道与 `poster-delivery.json`）；
+  投递锁 TTL 10 → **15 分钟**（必须 > 外层超时，否则误抢真实投递的锁）。
+  ⑤ **加高重截前必须先删旧 PNG**，否则上一轮的残留会被 `stat(size > 0)` 当成
+  「本次截图成功」（这是本轮改动自己引入的新风险，已修并加断言）。
+  ⑥ `cron-result.json` 新增 `attempts / imageProbe / canvas` 字段：海报里少了几张图、
+  画布停在多少 px 都变成可查数据。
+  验证：`npm run check:poster` **7 组 / 56 条断言全绿**；
+  `npm run counterproof:poster` **17 项打坏全部命中**，还原后全绿且逐文件 diff 无差异。
+  反证过程本身也抓到两条问题：一条断言被样例数据「蒙绿」（占位图断言被 HTML 里另一张
+  原生 `data:` 图满足，已改为只取被标记的那张）；`counterproof` 原来用 `sed` 打坏，
+  模式未命中时会**静默成功**并把好断言诬告成「恒真」，已改为模式必须命中的 `break_src`。
 
 ### 待决策 / 未修
 

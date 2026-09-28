@@ -27,3 +27,6 @@ scripts/__pycache__/
 # 海报预览的临时输入（调试产物，不入库）
 gen-req.json
 selected-ids.txt
+
+# 反证 harness 的工作目录（脚本会自行清理，中断时可能残留）
+.counterproof-tmp/

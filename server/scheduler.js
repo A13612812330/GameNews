@@ -30,6 +30,18 @@ let monitorRunning = false;
 let pipelineRunning = false;
 // 海报投递的运行锁按 kind 分离：日报卡住不应把周报一起拖死（旧实现共用一个布尔标志）。
 const posterKindLock = createKindLock();
+/**
+ * 一次失败就整天没有海报（2026-09-27 实测：08:30 日报失败后没有任何补救，
+ * 当天的简讯海报直接缺失，只能靠人工补投）。因此失败后重试一次。
+ * 子脚本自带「今天已投递 → 跳过」的幂等，重试不会造成重复发送。
+ *
+ * 调度不变式（改这里必须同步改 09:00 的周报 cron）：
+ *   日报最坏总时长 = 外层 600s × 2 次尝试 + 间隔 30s = 1230s ≈ 21 分钟
+ *   08:30 + 21min = 08:51 < 09:00（周报），留 9 分钟余量。
+ * 验证：scripts/verify-poster-pipeline-hardening.mjs 第 6 组。
+ */
+const POSTER_ATTEMPTS = 2;
+const POSTER_RETRY_DELAY_MS = 30_000;
 const schedulerLeasePath = path.join(root, "data", "logs", "scheduler.lease");
 let schedulerLeaseOwned = false;
 
@@ -96,47 +108,60 @@ async function runPosterDelivery(kind, sourceFile = "", articleIds = []) {
     const args = [path.join(root, "scripts", "scheduled-posters.mjs"), kind];
     if (sourceFile) args.push("--file", path.basename(sourceFile));
     if (kind === "daily" && articleIds.length) args.push("--article-ids", articleIds.join(","));
-    const { stdout = "", stderr = "" } = await execFileAsync(process.execPath, args, {
-      cwd: root,
-      windowsHide: true,
-      // 外层预算必须严格大于子脚本内部各段超时之和，否则会重演 2026-09-28 的
-      // 预算倒挂：内层单浏览器 90s × 2 个浏览器 = 180s，与外层 execFile 的 180s
-      // 完全相等 ⇒ 外层先杀，实测耗时正好 180 秒，日报连续失败。
-      // 现在内层收到 45s（≤3 个浏览器则 ≤135s），外层给 420s，
-      // 留给 waitForServer / 生成海报 / 隧道 / 裁边（自身 60s×2）等固定开销约 285s。
-      timeout: 420000,
-      maxBuffer: 4 * 1024 * 1024,
-    });
-    let result;
-    try {
-      result = parsePosterStdout(String(stdout));
-    } catch (parseError) {
-      throw new Error(`${parseError.message}${stderr ? `：${String(stderr).trim()}` : ""}`);
+    let lastFailure = null;
+    for (let attempt = 0; attempt < POSTER_ATTEMPTS; attempt += 1) {
+      try {
+        const { stdout = "", stderr = "" } = await execFileAsync(process.execPath, args, {
+          cwd: root,
+          windowsHide: true,
+          // 外层预算必须严格大于「子脚本最坏截图次数 + 固定开销」，否则会重演 2026-09-28
+          // 的预算倒挂：内层单浏览器 90s × 2 个浏览器 = 180s，与外层 execFile 的 180s
+          // 完全相等 ⇒ 外层先杀，实测耗时正好 180 秒，日报连续失败。
+          // 现在内层 45s、最坏 5 次截图（3 个候选浏览器 + 2 次加高重截）= 225s，
+          // 外层给 600s，留给 waitForServer / 生成海报 / 隧道 / 裁边（自身 60s×2）等约 375s。
+          timeout: 600000,
+          maxBuffer: 4 * 1024 * 1024,
+        });
+        let result;
+        try {
+          result = parsePosterStdout(String(stdout));
+        } catch (parseError) {
+          throw new Error(`${parseError.message}${stderr ? `：${String(stderr).trim()}` : ""}`);
+        }
+        if (!result?.ok || (result?.feishu !== "sent" && !result?.skipped)) {
+          throw new Error(result?.feishu || "飞书海报未发送");
+        }
+        await writeCronLog(label, {
+          success: true,
+          kind,
+          attempts: attempt + 1,
+          fileName: path.basename(result.target || sourceFile || ""),
+          previewGenerated: Boolean(result.previewPath),
+          publicUrlAvailable: Boolean(result.publicUrl),
+          publicError: result.publicError || "",
+          feishu: result.feishu || "skipped",
+          skipped: Boolean(result.skipped),
+          skipReason: result.reason || "",
+          imageProbe: result.imageProbe || null,
+          canvas: result.canvas || null,
+        });
+        console.log(`[${label}] ${result.skipped ? "- 已跳过重复投递" : "✓ 飞书已发送"}：${path.basename(result.target || sourceFile || "")}`);
+        return result;
+      } catch (error) {
+        // error.message 只有一句 "Command failed: <命令>"，真正的原因在 stdout/stderr 里，
+        // 全部落盘到 cron-result，否则下次又只能靠猜（2026-09-28：截图超时那条 warn 被丢掉）。
+        lastFailure = summarizeProcessFailure(error);
+        if (attempt + 1 < POSTER_ATTEMPTS) {
+          // 子脚本自带「今天已投递 → 跳过」幂等，因此重试不会造成重复发送。
+          console.warn(`[${label}] 第 ${attempt + 1} 次投递失败（${lastFailure.error}），${POSTER_RETRY_DELAY_MS / 1000}s 后重试`);
+          await new Promise((resolve) => setTimeout(resolve, POSTER_RETRY_DELAY_MS));
+        }
+      }
     }
-    if (!result?.ok || (result?.feishu !== "sent" && !result?.skipped)) {
-      throw new Error(result?.feishu || "飞书海报未发送");
-    }
-    await writeCronLog(label, {
-      success: true,
-      kind,
-      fileName: path.basename(result.target || sourceFile || ""),
-      previewGenerated: Boolean(result.previewPath),
-      publicUrlAvailable: Boolean(result.publicUrl),
-      publicError: result.publicError || "",
-      feishu: result.feishu || "skipped",
-      skipped: Boolean(result.skipped),
-      skipReason: result.reason || "",
-    });
-    console.log(`[${label}] ${result.skipped ? "- 已跳过重复投递" : "✓ 飞书已发送"}：${path.basename(result.target || sourceFile || "")}`);
-    return result;
-  } catch (error) {
-    // error.message 只有一句 "Command failed: <命令>"，真正的原因在 stdout/stderr 里，
-    // 全部落盘到 cron-result，否则下次又只能靠猜（2026-09-28：截图超时那条 warn 被丢掉）。
-    const failure = summarizeProcessFailure(error);
-    await writeCronLog(label, { success: false, kind, fileName: path.basename(sourceFile || ""), ...failure });
-    console.error(`[${label}] ✗ ${failure.error}`);
-    if (failure.stderrTail) console.error(`[${label}] stderr: ${failure.stderrTail}`);
-    if (failure.stdoutTail) console.error(`[${label}] stdout: ${failure.stdoutTail}`);
+    await writeCronLog(label, { success: false, kind, attempts: POSTER_ATTEMPTS, fileName: path.basename(sourceFile || ""), ...lastFailure });
+    console.error(`[${label}] ✗ ${lastFailure?.error || "海报投递失败"}`);
+    if (lastFailure?.stderrTail) console.error(`[${label}] stderr: ${lastFailure.stderrTail}`);
+    if (lastFailure?.stdoutTail) console.error(`[${label}] stdout: ${lastFailure.stdoutTail}`);
     return null;
   } finally {
     posterKindLock.end(kind);
@@ -561,17 +586,20 @@ export function startScheduler() {
   cron.schedule("30 8 * * *", () => runMorningBriefAndPoster().catch(e => console.error("[morning-poster]", e)));
   // 每日晚报 17:50
   cron.schedule("50 17 * * *", () => runPipeline("afternoon", 12, { syncMonitor: false }).catch(e => console.error("[afternoon]", e)));
-  // 每周一 08:50 周报。
-  // 原为 08:35，与 08:30 的日报海报共用同一台机器上的浏览器/隧道资源；
-  // 日报外层超时放宽到 420s 后，其最坏窗口会盖住 08:35 ⇒ 两者可能并发抢
-  // Cloudflare 隧道与 poster-delivery.json（读-改-写会丢记录）。
-  // 错开到 08:50 后，日报最坏（约 08:37 结束）与周报之间有 >10 分钟净空。
+  // 每周一 09:00 周报。
+  // 历史：原为 08:35，与 08:30 的日报海报共用同一台机器上的浏览器/隧道资源，
+  // 日报外层超时放宽到 420s 后其最坏窗口会盖住 08:35 ⇒ 两者可能并发抢
+  // Cloudflare 隧道与 poster-delivery.json（读-改-写会丢记录），故错开到 08:50。
+  // 现在日报失败后会重试一次（POSTER_ATTEMPTS），最坏总时长变成
+  // 600s × 2 + 30s = 1230s ≈ 21 分钟 ⇒ 08:30 + 21min = 08:51，08:50 不再安全，
+  // 因此再错开到 09:00（余量 9 分钟）。改 POSTER_ATTEMPTS / 外层 timeout / 本 cron
+  // 任一者都必须同步核对 scripts/verify-poster-pipeline-hardening.mjs 第 6 组的不变式。
   // 注意：kind 级互斥已独立成立，这里只是消除资源竞争，不是互斥的替代品。
-  cron.schedule("50 8 * * 1", () => runWeeklyBriefAndPoster().catch(e => console.error("[weekly-poster]", e)));
+  cron.schedule("00 9 * * 1", () => runWeeklyBriefAndPoster().catch(e => console.error("[weekly-poster]", e)));
   // 每日凌晨：最近 7 天和未来保留完整数据；更早内容轻量 JSON 留档，图片不缓存。
   cron.schedule("15 3 * * *", () => runRetentionMaintenance().catch(e => console.error("[retention-maintenance]", e)));
 
-  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控 + 08:30早报/日海报 + 17:50晚报 + 周一08:50周报/飞书投递 + 每日03:15轻量留档清理");
+  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控 + 08:30早报/日海报 + 17:50晚报 + 周一09:00周报/飞书投递 + 每日03:15轻量留档清理");
 }
 
 export { runPipeline, runMonitorPipeline, runWeeklyBrief };
