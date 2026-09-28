@@ -3,7 +3,9 @@
 ## 项目边界
 
 - 项目根目录：`E:\新建文件夹\Codex-GPT\GameNews`
-- 前端端口固定为 `64423`，后端端口固定为 `64424`。
+- 日常服务端口只有一个：`64424`。`server/index.js` 用 `express.static` 同时托管前端 `dist/` 与 `/api`，浏览器直接访问 `http://127.0.0.1:64424/`。
+- 前端热更新端口 `64423` 仅供开发，由守护脚本按 `GAMENEWS_DEV_CLIENT=1` 决定是否启动，**默认不监听**，不要把它当成日常入口。
+- **`64425` 是对外暴露面，禁止并入 `64424`**：Cloudflare 隧道（`data/poster-public-tunnel.json`）直指 64425，只放行海报静态资源。若合并到 64424，`/api/*` 会一并被公网访问到。
 - 前端通过 Vite proxy 访问 `/api` 和 `/crawler-assets`，不要在组件中硬编码后端地址。
 - 默认不读取、打印或提交 `.env`、API 密钥和敏感配置。
 - 修改数据库表结构前必须先确认；现有 `server/database.js` 使用 SQLite，业务表为 `sources`、`articles`、`briefs`。

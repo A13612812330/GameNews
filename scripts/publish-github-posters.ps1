@@ -15,6 +15,19 @@ if (-not (Test-Path -LiteralPath $sourceRoot)) {
 
 New-Item -ItemType Directory -Force -Path $dailyRoot, $weeklyRoot | Out-Null
 
+# 先把海报里的本机图片地址落地成归档内的相对路径副本：
+#   127.0.0.1:64424/weekly-assets/...  →  复制 data/weekly-snapshots/... 的本地快照
+#   127.0.0.1:64424/api/image-proxy?..  →  服务端代取原始图
+# 不这么做的话，推到 GitHub 后外部访客打开就是满屏破图（本机地址指向他自己电脑）。
+# 详见 scripts/archive-posters-selfcontained.mjs。
+$archiveScript = Join-Path $projectRoot "scripts\archive-posters-selfcontained.mjs"
+if (Test-Path -LiteralPath $archiveScript) {
+  $nodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
+  if (-not $nodeExe) { $nodeExe = "D:\NodeJS\node.exe" }
+  & $nodeExe $archiveScript
+  if ($LASTEXITCODE -ne 0) { throw "海报归档自包含失败（node exit $LASTEXITCODE）" }
+}
+
 function Sync-PosterFiles([string]$Pattern, [string]$Destination) {
   $changed = 0
   Get-ChildItem -LiteralPath $sourceRoot -File | Where-Object { $_.Name -match $Pattern } | ForEach-Object {

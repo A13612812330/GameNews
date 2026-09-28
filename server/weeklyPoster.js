@@ -41,10 +41,17 @@ function assetUrl(value = "", assetBase) {
   return ["ref-taptap", "ref-haoyou", "ref-gcores", "ref-gamersky"].includes(String(value.source_id || "")) ? `${assetBase}/api/image-proxy?url=${encodeURIComponent(value)}` : value;
 }
 
+function isEventBannerImage(item) {
+  return item?.type === "event_banner";
+}
+
 function imageFor(article, assetBase) {
   const images = Array.isArray(article.images) ? article.images : [];
   const localValue = (item) => item?.localUrl || item?.src || item?.originalUrl || item?.url || "";
-  const saved = images.find((item) => String(localValue(item)).startsWith("/weekly-assets/"))
+  // 活动卡优先用实测过尺寸的「活动大图」：好游快爆的列表封面只有 256×256 游戏图标，
+  // 直接用会让活动区显示成游戏 logo。没有大图时完全退回原来的封面选择逻辑。
+  const saved = images.find((item) => isEventBannerImage(item) && localValue(item))
+    || images.find((item) => String(localValue(item)).startsWith("/weekly-assets/"))
     || images.find((item) => String(localValue(item)).startsWith("/crawler-assets/"))
     || images[0];
   // 周报快照已把图片落盘时，必须优先本地路径；否则会重新走不稳定的源站图片。
@@ -56,7 +63,22 @@ function imageFor(article, assetBase) {
     : value;
 }
 
+// 快照主图已落盘在 data/weekly-snapshots/<date>/assets/（http 服务以
+// /weekly-assets/ 暴露），优先用它：源站对站外 Referer 的防盗链
+// （TapTap 567 / 机核 403 / 游民 403）会让公开链接打开时整片白图。
+// 小卡片（新游 / Steam）用的是游戏图标，必须跳过活动大图。
+function localSnapshotImage(article = {}) {
+  const images = Array.isArray(article.images) ? article.images : [];
+  const saved = images.find((item) => !isEventBannerImage(item) && String(item?.localUrl || item?.src || "").startsWith("/weekly-assets/"))
+    || images.find((item) => !isEventBannerImage(item) && String(item?.localUrl || item?.src || "").startsWith("/crawler-assets/"));
+  if (!saved) return "";
+  const value = String(saved.localUrl || saved.src || "");
+  return value.startsWith("/") ? value : "";
+}
+
 function iconFor(article, assetBase) {
+  const local = localSnapshotImage(article);
+  if (local) return `${assetBase}${local}`;
   const value = article.image_url || "";
   if (!value) return imageFor(article, assetBase);
   if (String(value).startsWith("/crawler-assets/") || String(value).startsWith("/weekly-assets/") || String(value).startsWith("/api/image-proxy")) return `${assetBase}${value}`;
@@ -333,7 +355,12 @@ function newActivityTimelineMarkup(newRows, eventRows, assetBase, number = "01")
   return `<section class="weekly-section weekly-section--new-activity"><header><span>${escapeHtml(number)}</span><h2>新游 &amp; 活动</h2><small>新游 ${newRows.length} 条 · 活动 ${eventRows.length} 条</small></header><div class="weekly-timeline">${content || '<p class="weekly-empty">近 14 天暂无符合条件的资讯。</p>'}</div></section>`;
 }
 
-export function buildWeeklyPosterHtml(articles = [], { assetBase = "http://127.0.0.1:64424", period = "" } = {}) {
+/**
+ * 周报的选材结果。抽成独立导出，除了 buildWeeklyPosterHtml 使用外，
+ * 历史快照回填脚本也靠它精确定位「这一版周报真正渲染的条目」，
+ * 避免为了修 40 张卡片去改写 500+ 条快照记录。
+ */
+export function selectWeeklyPosterRows(articles = []) {
   const latest = latestDistinct(articles);
   const buckets = { newGames: [], events: [], steam: [], editorial: [] };
   latest.forEach((article) => { const type = classify(article); if (type) buckets[type].push(article); });
@@ -347,6 +374,11 @@ export function buildWeeklyPosterHtml(articles = [], { assetBase = "http://127.0
       return layoutCount >= 2 || (article.paragraphs || []).join(" ").trim().length >= 120;
     })
     .sort((left, right) => editorialQuality(right) - editorialQuality(left));
+  return { newGames, events, steam, editorial };
+}
+
+export function buildWeeklyPosterHtml(articles = [], { assetBase = "http://127.0.0.1:64424", period = "" } = {}) {
+  const { newGames, events, steam, editorial } = selectWeeklyPosterRows(articles);
   const sectionEntries = [
     { kind: "newActivity", rows: newGames.length + events.length },
     { kind: "steam", rows: steam.length, title: "Steam 热门", key: "steam", limit: Infinity },
@@ -369,7 +401,7 @@ export function buildWeeklyPosterHtml(articles = [], { assetBase = "http://127.0
   </style></head><body><main class="page"><header class="masthead"><div><div class="eyebrow">GAME NEWS HUB · BIWEEKLY POSTER</div><h1>近14天游戏周报</h1></div><div class="weekly-date"><b>${escapeHtml(period)}</b><span>上海时间 · 共 ${total} 条重点内容</span></div></header>${sections}</main></body></html>`;
 }
 
-function rollingFortnightRange(now = new Date()) {
+export function rollingFortnightRange(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
   const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
   const end = new Date(`${values.year}-${values.month}-${values.day}T12:00:00+08:00`);

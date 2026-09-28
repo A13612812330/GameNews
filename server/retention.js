@@ -66,31 +66,46 @@ function remoteImageValue(value, imageMap) {
   return value;
 }
 
-function normalizeImages(imagesValue) {
+/**
+ * 归一化图片字段。
+ *
+ * `preserveLocal` 用于**周报快照**：快照的主图已经落盘在
+ * `data/weekly-snapshots/<date>/assets/`（保留期 30 天，由公开只读服务
+ * 以 `/assets/` 暴露），必须把 `/weekly-assets/...` 的 localUrl 原样留下。
+ *
+ * 默认（RAW 留档等）仍然把本地引用还原成远程地址 —— 那些场景下
+ * `/crawler-assets/` 会随活跃库清理而消失，留本地路径会变成死链。
+ */
+function normalizeImages(imagesValue, { preserveLocal = false } = {}) {
   const images = Array.isArray(imagesValue) ? imagesValue : safeJson(imagesValue, []);
   const imageMap = new Map();
   const normalized = [];
   const seen = new Set();
   for (const image of images) {
     if (!image || typeof image !== "object") continue;
+    const localUrl = String(image.localUrl || "").trim();
+    const keepLocal = preserveLocal && localUrl.startsWith("/weekly-assets/");
     const original = String(image.originalUrl || image.url || image.src || image.localUrl || "").trim();
-    if (!original) continue;
+    if (!original && !keepLocal) continue;
     const local = [image.src, image.localUrl].filter((item) => typeof item === "string" && item.includes("/crawler-assets/"));
     for (const item of local) {
       imageMap.set(item, original);
       const relative = item.slice(item.indexOf("/crawler-assets/"));
       imageMap.set(relative, original);
     }
-    if (seen.has(original)) continue;
-    seen.add(original);
-    normalized.push({
+    if (seen.has(original || localUrl)) continue;
+    seen.add(original || localUrl);
+    const entry = {
       id: image.id || `remote-image-${normalized.length + 1}`,
       src: original,
       url: original,
       originalUrl: original,
       alt: image.alt || "",
       type: image.type || (normalized.length === 0 ? "cover_candidate" : "body_candidate"),
-    });
+    };
+    // src 保持远程（轻量留档/正文替换仍按远程走），只额外保留可用的本地主图路径。
+    if (keepLocal) entry.localUrl = localUrl;
+    normalized.push(entry);
   }
   return { images: normalized, imageMap };
 }
@@ -185,7 +200,7 @@ function collectSnapshotArticles(raw) {
   }));
 }
 
-function normalizeSnapshotPayload(raw) {
+function normalizeSnapshotPayload(raw, { preserveLocal = false } = {}) {
   const articles = Array.isArray(raw?.articles) ? raw.articles : [];
   const replacements = new Map();
   const normalizedArticles = articles.map((article) => {
@@ -194,7 +209,7 @@ function normalizeSnapshotPayload(raw) {
       : Array.isArray(article.imageItems) && article.imageItems.length
         ? article.imageItems
         : safeJson(article.images_json, []);
-    const { images, imageMap } = normalizeImages(sourceImages);
+    const { images, imageMap } = normalizeImages(sourceImages, { preserveLocal });
     imageMap.forEach((remote, local) => replacements.set(local, remote));
     const normalized = remoteImageValue({ ...article }, imageMap);
     normalized.images = images;
@@ -290,10 +305,11 @@ export async function archiveExpiredWeeklySnapshots({ root, keepDays = 7, now = 
     const jsonPath = path.join(dir, "materials.json");
     try {
       const raw = safeJson(await fs.readFile(jsonPath, "utf8"), {});
-      const { payload } = normalizeSnapshotPayload(raw);
+      // 保留期内的快照必须保住 localUrl：主图就存在同目录 assets/ 下，
+      // 抹掉它会让周报退回源站图片（TapTap/机核/游民带 Referer 时 403/567）。
+      const { payload } = normalizeSnapshotPayload(raw, { preserveLocal: true });
       await fs.writeFile(jsonPath, JSON.stringify(payload, null, 2), "utf8");
-      const removed = await removeDirectoryWithRetry(path.join(dir, "assets"));
-      if (!removed.deleted) pendingDeletion.push({ date: entry.name, error: `assets: ${removed.error}` });
+      // 保留期内的主图必须继续存在；过期快照会整体删除，不再单独清理 assets。
       normalized += 1;
     } catch {}
   }

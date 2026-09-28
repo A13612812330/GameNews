@@ -545,7 +545,7 @@ export async function crawlCandidates(
                   item.gameName,
                   item.category,
                   item.detailUrl,
-                  item.imageUrl,
+                  item.imageUrl || "",
                   item.dateText || "",
                   item.score,
                   JSON.stringify(paras),

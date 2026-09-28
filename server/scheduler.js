@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import fsSync from "node:fs";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -19,6 +20,37 @@ const execFileAsync = promisify(execFile);
 let monitorRunning = false;
 let pipelineRunning = false;
 let posterRunning = false;
+const schedulerLeasePath = path.join(root, "data", "logs", "scheduler.lease");
+let schedulerLeaseOwned = false;
+
+function acquireSchedulerLease() {
+  fsSync.mkdirSync(path.dirname(schedulerLeasePath), { recursive: true });
+  try {
+    const fd = fsSync.openSync(schedulerLeasePath, "wx");
+    fsSync.writeFileSync(fd, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+    fsSync.closeSync(fd);
+    schedulerLeaseOwned = true;
+    const release = () => {
+      if (!schedulerLeaseOwned) return;
+      schedulerLeaseOwned = false;
+      try { fsSync.unlinkSync(schedulerLeasePath); } catch {}
+    };
+    process.once("exit", release);
+    process.once("SIGINT", () => { release(); process.exit(0); });
+    process.once("SIGTERM", () => { release(); process.exit(0); });
+    return true;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    try {
+      const current = JSON.parse(fsSync.readFileSync(schedulerLeasePath, "utf8"));
+      process.kill(Number(current.pid), 0);
+      return false;
+    } catch {
+      try { fsSync.unlinkSync(schedulerLeasePath); } catch {}
+      return acquireSchedulerLease();
+    }
+  }
+}
 
 async function runRetentionMaintenance() {
   try {
@@ -60,7 +92,7 @@ async function runPosterDelivery(kind, sourceFile = "", articleIds = []) {
     } catch {
       throw new Error(`海报脚本未返回可识别结果${stderr ? `：${String(stderr).trim()}` : ""}`);
     }
-    if (!result?.ok || result?.feishu !== "sent") {
+    if (!result?.ok || (result?.feishu !== "sent" && !result?.skipped)) {
       throw new Error(result?.feishu || "飞书海报未发送");
     }
     await writeCronLog(label, {
@@ -70,9 +102,11 @@ async function runPosterDelivery(kind, sourceFile = "", articleIds = []) {
       previewGenerated: Boolean(result.previewPath),
       publicUrlAvailable: Boolean(result.publicUrl),
       publicError: result.publicError || "",
-      feishu: result.feishu,
+      feishu: result.feishu || "skipped",
+      skipped: Boolean(result.skipped),
+      skipReason: result.reason || "",
     });
-    console.log(`[${label}] ✓ 飞书已发送：${path.basename(result.target || sourceFile || "")}`);
+    console.log(`[${label}] ${result.skipped ? "- 已跳过重复投递" : "✓ 飞书已发送"}：${path.basename(result.target || sourceFile || "")}`);
     return result;
   } catch (error) {
     const message = error?.message || "海报投递失败";
@@ -426,6 +460,10 @@ async function writeBriefArchive(label, serialized) {
 export function startScheduler() {
   if (isCrawlerPaused()) {
     console.log("[scheduler] 爬虫维护暂停，定时任务未注册；服务继续启动");
+    return;
+  }
+  if (!acquireSchedulerLease()) {
+    console.log("[scheduler] 已有其他 GameNews 服务实例持有调度锁，本实例不注册定时任务");
     return;
   }
   // 每日早报 08:30

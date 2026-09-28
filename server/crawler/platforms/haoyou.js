@@ -190,3 +190,184 @@ export function isDetailUrl(url) {
     return u.hostname.includes("3839.com") && (/\/thread-\d+\.htm/.test(u.pathname) || /\/a\/\d+\.htm/.test(u.pathname));
   } catch { return false; }
 }
+
+/**
+ * 好游时间线「即将更新」的列表封面是 256×256 游戏图标（实测 `img.71acg.net/kbyx/sykb/...`
+ * 无尺寸参数时只有 256px，加 `~thumb?1280x720` 也不会放大 —— 服务端不提供等比缩放回源）。
+ * 周报活动卡需要的是活动/宣传大图，只能从**游戏页图集**里取：那里有官方截图
+ * （`~thumb?1600x960` / `~thumb?1280x720`）、视频封面（`v.3839video.com/..._1280_720_*.jpg`）。
+ *
+ * 这里只做 URL 层面的排除与排序（真实尺寸由落盘环节实测复核，见 server/imageSize.js）：
+ * 排除站内 UI 资源与二维码，按「官方图集 → 未知尺寸图 → 视频封面」分级，同级优先横版、再按面积与日期。
+ */
+// 注意 `~sykb` 有多种前缀写法：`sykb~sykb`、`kbyx~sykb`（实测这类是 900×1600 的旧宣传图，
+// 曾被误当成活动大图选中）。只写 `sykb~sykb` 会漏掉 `kbyx~sykb`，故统一用 `~sykb` 兜住。
+const HAOYOU_EVENT_IMAGE_JUNK = /(?:~sykb|sykb~bbs|sykb\/bbs|\/default\/|ico-|qrcode|qr-|qr_|logo|avatar|smile|emoji|\/common\/|mn-|competition|\/gicon\/)/iu;
+
+/** 活动卡适合的图片比例上限：`~thumb?1280x320` 这类 4:1 长条横幅在卡片里几乎看不清内容。 */
+const HAOYOU_EVENT_IMAGE_MAX_RATIO = 3;
+
+/** 从图片 URL 里的尺寸提示解析真实宽高；好游的 `~thumb?1600x960` 实测与真实尺寸完全一致。 */
+export function haoyouImageSizeHint(value = "") {
+  const text = String(value || "");
+  const thumb = /~thumb\?(\d{2,5})x(\d{2,5})/iu.exec(text) || /~(\d{2,5})x(\d{2,5})(?:[?#]|$)/u.exec(text);
+  if (thumb) return { width: Number(thumb[1]), height: Number(thumb[2]) };
+  const video = /_(\d{2,5})_(\d{2,5})_/u.exec(text);
+  if (video) return { width: Number(video[1]), height: Number(video[2]) };
+  return null;
+}
+
+function haoyouImageDateKey(value = "") {
+  const match = /(20\d{2})(\d{2})(\d{2})\//u.exec(String(value || ""));
+  return match ? Number(`${match[1]}${match[2]}${match[3]}`) : 0;
+}
+
+/**
+ * 好游详情页的播放器块（`<div class="lb-vid" data-vid="//v2.3839video.com/.../xxx-hd.mp4">`）
+ * 里那张 `<img class="sp-img">` 就是**活动宣传大图**：实测恒为 1280×720 / 1920×1080，
+ * 而且 `alt` 往往直接写着活动标题（例：「《失控进化》S2赛季—制霸王座，现已推出！」）。
+ *
+ * 这是比「游戏页图集」更贴合当前条目的素材来源 —— 图集是游戏的历史截图，
+ * 播放器封面则是**这条资讯自己的**宣传图。
+ *
+ * 封面有两种形态，都要认：
+ *   1. `/video/upload/yuanchuang/<id>_1280_720_<ts>.jpg` —— 路径里自带尺寸，可直接解析；
+ *   2. `/video/upload/<id>.jpg` —— 无尺寸提示，但实测同样是 1280×720 / 1920×1080。
+ * 少数是 `img.71acg.net/...` 作封面，同样收下。
+ */
+export function pickHaoyouVideos(html = "", baseUrl = "") {
+  const source = String(html || "");
+  if (!source) return [];
+  const blocks = [];
+  // 播放器块：从 lb-vid 起，取到最近的容器结束标签。结构固定，限长避免跨块吞并。
+  for (const match of source.matchAll(/<div[^>]*class=["'][^"']*\blb-vid\b[^"']*["'][^>]*>([\s\S]{0,900}?)<\/div>/giu)) {
+    blocks.push(match[0]);
+  }
+  // 兜底：有些页面把播放器封面放在 `sp-img` 上但父容器类名不同，单独再扫一遍。
+  for (const match of source.matchAll(/<img[^>]*class=["'][^"']*\bsp-img\b[^"']*["'][^>]*>/giu)) {
+    blocks.push(match[0]);
+  }
+
+  const seen = new Set();
+  const videos = [];
+  for (const block of blocks) {
+    const imgTag = /<img[^>]*>/iu.exec(block)?.[0] || (block.startsWith("<img") ? block : "");
+    if (!imgTag) continue;
+    const raw = (/src=["']([^"']+)["']/iu.exec(imgTag) || [])[1] || "";
+    if (!raw || /^data:/iu.test(raw)) continue;
+    const cover = resolveMediaUrl(raw, baseUrl);
+    if (!cover || seen.has(cover)) continue;
+    // 只认视频站与快爆图床的封面，避免把正文普通配图也当播放器封面。
+    if (!/(?:3839video\.com|71acg\.net|3839\.com)/iu.test(cover)) continue;
+    seen.add(cover);
+    const alt = cleanMediaText((/alt=["']([^"']*)["']/iu.exec(imgTag) || [])[1] || "");
+    const mp4 = resolveMediaUrl((/data-vid=["']([^"']+)["']/iu.exec(block) || [])[1] || "", baseUrl);
+    videos.push({ cover, alt, mp4 });
+  }
+  return videos;
+}
+
+function resolveMediaUrl(value = "", baseUrl = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw.startsWith("//") ? `https:${raw}` : raw, baseUrl || "https://www.3839.com/").toString();
+  } catch {
+    return "";
+  }
+}
+
+function cleanMediaText(value = "") {
+  return String(value || "").replace(/<[^>]+>/gu, "").replace(/\s+/gu, " ").trim();
+}
+
+// 宣传向文案：出现这些词说明封面就是该活动的宣传图。
+const HAOYOU_PROMO_VIDEO_ALT = /上线|首发|正式|现已|推出|版本|赛季|资料片|联动|周年|庆典|活动|开启|定档|公测|测试|招募|首曝|首发|宣传片|宣传视频|预告|最新|福利|更新/iu;
+// 玩家自产内容：封面与当前活动无关，排到最后只作兜底。
+const HAOYOU_UGC_VIDEO_ALT = /实况|试玩|混剪|解说|攻略|抢先玩|速通|挑战|花絮|幕后|直播|剪辑|测评|盘点|CJ|实机演示|试玩视频|击杀|混剪/iu;
+
+/**
+ * 播放器封面的相关性分档（越小越优先）：
+ *   0 = alt 同时命中「本卡游戏名 + 宣传词」⇒ 就是这条活动的宣传大图
+ *   1 = 命中宣传词的官方宣传图
+ *   2 = alt 中性（无信息）
+ *   4 = 玩家自产内容（实况/试玩/混剪…）
+ */
+function haoyouVideoTier(alt = "", gameName = "") {
+  const text = String(alt || "");
+  if (!text) return 2;
+  if (HAOYOU_UGC_VIDEO_ALT.test(text)) return 4;
+  const promo = HAOYOU_PROMO_VIDEO_ALT.test(text);
+  // 时间线会把运营状态拼进游戏名（如「使命召唤手游体验服」），
+  // 而封面 alt 里写的是正式名，比较前先把这层后缀剥掉，否则永远匹配不上。
+  const name = extractGameName(gameName || "")
+    .replace(/(?:体验服|测试服|先遣服|渠道服|国际服|怀旧服|正式服|官服)$/u, "")
+    .trim();
+  const named = Boolean(name) && text.includes(name);
+  if (promo && named) return 0;
+  if (promo) return 1;
+  return 2;
+}
+
+/**
+ * 排出「活动大图」候选，供周报活动卡替换掉列表封面（256×256 图标）。
+ *
+ * 优先序（实测校准过）：本活动宣传封面 → 游戏页官方大图 → 中性播放器封面 →
+ * 未知尺寸图 → 玩家内容封面。同档内：横版优先 → 面积大优先 → 日期新优先。
+ *
+ * @param layout 游戏页/正文图集（`[{type:"image",url}]` 或 URL 数组）
+ * @param videos `pickHaoyouVideos()` 的结果，携带 `alt` 用于相关性判定
+ * @param activity `{ gameName }`，用于判断封面是否属于本卡游戏
+ */
+export function pickHaoyouEventImages(layout = [], { limit = 6, skip = [], videos = [], activity = {} } = {}) {
+  const rejected = new Set((Array.isArray(skip) ? skip : []).filter(Boolean));
+  const seen = new Set();
+  const candidates = [];
+  const gameName = activity?.gameName || "";
+
+  const consider = (value, { videoAlt = "", isVideo = false } = {}) => {
+    if (!value || typeof value !== "string" || !/^https?:\/\//iu.test(value)) return false;
+    if (HAOYOU_EVENT_IMAGE_JUNK.test(value) || rejected.has(value) || seen.has(value)) return false;
+    const hint = haoyouImageSizeHint(value);
+    // 已知是长条横幅（如 1280×320）直接排除；卡片里看不清内容。
+    if (hint && hint.width / hint.height > HAOYOU_EVENT_IMAGE_MAX_RATIO) return false;
+    seen.add(value);
+    const isVideoCover = isVideo || /3839video\.com/iu.test(value);
+    const tier = isVideoCover
+      ? haoyouVideoTier(videoAlt, gameName)
+      : hint ? 1 : 3;
+    const landscape = hint ? hint.width / hint.height >= 1.3 : true;
+    candidates.push({
+      value,
+      tier,
+      landscape: landscape ? 1 : 0,
+      area: hint ? hint.width * hint.height : 0,
+      date: haoyouImageDateKey(value),
+      video: isVideoCover ? 1 : 0,
+      order: candidates.length,
+    });
+    return true;
+  };
+
+  // 播放器封面优先入库（带 alt，能拿到 tier 0/1）
+  for (const video of Array.isArray(videos) ? videos : []) {
+    const cover = typeof video === "string" ? video : video?.cover;
+    consider(cover, { videoAlt: typeof video === "string" ? "" : video?.alt, isVideo: true });
+  }
+  for (const block of Array.isArray(layout) ? layout : []) {
+    if (block && block.type && block.type !== "image") continue;
+    consider(typeof block === "string" ? block : block?.url || block?.src || block?.originalUrl);
+  }
+
+  candidates.sort((left, right) =>
+    left.tier - right.tier
+    || right.landscape - left.landscape
+    || right.area - left.area
+    || right.video - left.video
+    || right.date - left.date
+    // 同档同位时保留**页面原始顺序**（好游页面是最新活动在前），
+    // 不要用 localeCompare —— 那会按 ID 字典序打乱，挑到更旧的活动图。
+    || left.order - right.order,
+  );
+  return candidates.slice(0, Math.max(0, limit)).map((item) => item.value);
+}

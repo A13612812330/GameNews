@@ -1,4 +1,11 @@
-"""移除 Edge 长截图底部的空白背景，保留海报实际内容和底部留白。"""
+"""移除 Edge 长截图底部的空白背景，保留海报实际内容和底部留白。
+
+⚠️ 已停用（2026-09-28）：流水线改用 `scripts/trim-poster-preview.mjs`（纯 Node，零依赖）。
+本机 PATH 上的 `python` 是没有 PIL 的托管解释器，这个脚本在调度环境里必然抛
+`ModuleNotFoundError`，而调用方是 try/catch + warn ⇒ 裁边静默失效、12000px 空白画布
+被原样上传飞书。**不要在 scheduled-posters.mjs 里改回调用本文件。**
+保留此文件仅作算法参照；两种实现的输出已实测逐像素一致。
+"""
 
 from pathlib import Path
 import sys

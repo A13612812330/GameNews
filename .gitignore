@@ -23,3 +23,7 @@ output/*
 tools/cloudflared/
 scripts/__pycache__/
 .DS_Store
+
+# 海报预览的临时输入（调试产物，不入库）
+gen-req.json
+selected-ids.txt

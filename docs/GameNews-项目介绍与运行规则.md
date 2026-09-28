@@ -90,10 +90,12 @@ cd E:\新建文件夹\Codex-GPT\GameNews
 
 | 页面/服务 | 地址 |
 |---|---|
-| 前端首页 | `http://127.0.0.1:64423/` |
-| 今日简讯后台 | `http://127.0.0.1:64423/#/dash` |
+| 前端首页 | `http://127.0.0.1:64424/` |
+| 今日简讯后台 | `http://127.0.0.1:64424/#/dash` |
 | 后端健康检查 | `http://127.0.0.1:64424/api/health` |
-| 海报公开服务健康检查 | `http://127.0.0.1:64425/health` |
+| 前端热更新（可选，仅开发时） | `http://127.0.0.1:64423/`（需 `GAMENEWS_DEV_CLIENT=1`） |
+| 海报公开服务健康检查 | `http://127.0.0.1:64425/health`（对外暴露面，禁止并入 64424） |
+| 两者都由守护进程托管 | `scripts/gamenews-watchdog.ps1` 同时守 64424 与 64425；64425 挂了分享链接就白图，不能只守一个 |
 
 RAW 历史页面：
 
@@ -360,12 +362,82 @@ EDGE_BIN
 并不能阻止 Chrome 在「」这类括号边界断行，会出现半句悬挂。
 榜单页按 `scripts/preview-daily-poster.mjs` 离线预览，不依赖后端进程。
 
+#### 日报长图裁边链路（2026-09-28 定位并修复，勿回退）
+
+飞书卡片里的日报长图**必须裁掉底部空白画布**，否则整张图会变成「上方一小条内容 + 下方大片空白」。
+
+| 环节 | 实测数据 |
+|---|---|
+| 渲染画布 | `--window-size=1100,12000`（`renderPosterPreview`，12000px 是为了不截断长日报） |
+| 09-28 实际内容 | 末内容行 y=2128，裁后 **2201px**，被裁掉 **9799px**（占画布 82%） |
+| 09-24/25/26 产物 | 全部是原始 **1100x12000**，即裁边完全没生效 |
+
+根因：裁边原本靠 `execFileSync(process.env.PYTHON_BIN || "python", ["scripts/trim-poster-preview.py", ...])`，
+而本机 PATH 上的 `python` 是**没装 PIL** 的托管解释器 ⇒ 每次都抛 `ModuleNotFoundError`；
+调用处是 `try/catch + console.warn`，错误被吞掉 ⇒ 静默失效。
+
+三条硬约束：
+
+1. **裁边必须是零依赖的 Node 实现**：`scripts/trim-poster-preview.mjs`
+   （`node:zlib` 解 PNG 像素 → 从底部找最后一行内容 → 裁到 `lastContent + 73`）。
+   不要再依赖 `python` / PIL / PATH 上的任何外部解释器。
+2. **裁边失败必须能看见**：`trimPosterPreview()` 会打印真实原因，并在「画布仍是 12000px 且高度没变小」时
+   打 `裁边未生效` 警告。成功时打印 `PNG 裁边 1100x12000 → 1100x2201（去掉 9799px 空白）`。
+3. **`scripts/trim-poster-preview.py` 已停用**（文件头有标注，仅作算法参照）。
+   两种实现的输出已实测**逐像素一致**（像素 md5 相同），可安全互换。
+
+验证方式（离线、不投递）：
+
+```bash
+# 1) 渲染一张复现用画布（会得到 1100x12000）
+#    同 renderPosterPreview 的参数，指向 /generated-output/scheduled-posters/<name>.html
+# 2) 跑裁边并看输出
+node scripts/trim-poster-preview.mjs <png> --report   # 只报告不改
+node scripts/trim-poster-preview.mjs <png>            # 就地裁边（幂等）
+```
+
 ### 周报
 
 - 使用周报快照，避免活跃文章清理后周报内容失效。
 - 每篇只长期缓存一张主图，不缓存全部正文图片。
 - 完整周报快照目标保留 30 天。
 - 30 天后可只保留轻量 JSON。
+
+#### 周报图片链路（2026-09-28 定位并修复，勿回退）
+
+源站图片**按 Referer 防盗链**，同一份 HTML 在本地能看、经隧道分享出去就白图：
+
+| 图片域名 | 不带 Referer | 带站外 Referer |
+|---|---|---|
+| `img.71acg.net`（好游快爆） | 200 | 200 |
+| `f1.3839img.com`（九游） | 200 | 200 |
+| `img-tc.tapimg.com`（TapTap） | 200 | **567** |
+| `image.gcores.com`（机核） | 200 | **403** |
+| `imgs.gamersky.com`（游民星空） | 200 | **403** |
+
+因此有三条硬约束：
+
+1. **主图必须落盘并由同源 `/assets/` 提供**。`server/weeklySnapshots.js`
+   把每篇主图写到 `data/weekly-snapshots/<date>/assets/main-<sha1前16位>.<ext>`，
+   快照里记为 `localUrl = /weekly-assets/<date>/assets/...`。
+   `server/retention.js` 的归一化**必须带 `preserveLocal: true`**
+   （RAW 留档路径保持默认 `false`，把本地引用还原成远程）。
+   曾经漏了这一步：113 张图躺在磁盘上没人引用，周报只能回退远程地址 ⇒ 公开链接整片白图。
+2. **抓图时不能统一发第三方 Referer**。`copyPrimaryImage` 早期固定发
+   `https://www.3839.com/`，直接把 TapTap / 机核 / 游民的主图打到 403/567，
+   只有 113/130 张落盘。现按图片域名给对应站点 Referer，失败再退回不带 Referer。
+3. **公开只读服务必须代取，不能把原始地址甩给访问者**。
+   `scripts/poster-public-server.mjs`（64425）在响应时改写 HTML：
+   - `http://127.0.0.1:*/weekly-assets/...` → `/assets/...`（本地副本，同源）
+   - `http://127.0.0.1:*/api/image-proxy?url=X` → `/image?url=X`（服务端代取，不带 Referer）
+
+   **不能保留原始远程地址** —— 访问者浏览器直连源站会带隧道域名做 Referer，被 403/567 拦掉。
+
+历史快照若已被抹掉 `localUrl`，用 `scripts/repair-weekly-snapshot-assets.mjs`
+按 sha1 文件名确定性地挂回（无需重新抓取）；先 `--dry-run` 看清单。
+
+`server/weeklyPoster.js` 的 `imageFor` / `iconFor` 都**优先取快照本地图**
+（新游卡走 `iconFor`，早期只读 `article.image_url`，等于绕开了本地副本）。
 
 ### 正式输出目录
 
@@ -385,7 +457,7 @@ E:\新建文件夹\Codex-GPT\GameNews\published-posters\weekly
 | RAW 完整快照 | 7 天 |
 | 周报完整快照和主图 | 30 天 |
 | 过期资料 | 转为轻量 JSON 长期留档 |
-| 图片 | 优先保留远程 URL；周报只缓存主图 |
+| 图片 | 周报每篇主图落盘并由 `/assets/` 提供；无本地副本的走公开服务 `/image` 代取（源站有 Referer 防盗链，不能直链） |
 | `.snapshots` | 当前约 1.29 GiB，尚需单独制定生命周期 |
 
 删除任何历史快照前，必须先生成预览清单并由项目负责人确认。
@@ -416,7 +488,7 @@ https://github.com/A13612812330/GameNews
 
 ### P0
 
-- 海报重复发送防护、周报图片路径修复、scheduler 单实例锁仍有未提交修改。
+- 海报重复发送防护、周报图片路径修复、日报长图裁边改 Node 实现、scheduler 单实例锁仍有未提交修改。
 - 临时 Cloudflare 隧道地址可能失效，不能视为永久周报链接。
 
 ### P1
@@ -492,6 +564,8 @@ http://127.0.0.1:64424/api/health
 
 - 先生成测试预览。
 - 检查图片加载、文字截断、底部长留白。
+- **日报长图必须核对裁边结果**：投递用的 PNG 高度应远小于渲染画布（正常约 2000–3000px）。
+  若产物仍是 `1100x12000`，说明裁边链路断了，见「日报长图裁边链路」一节。
 - 测试同日重复运行是否会再次推送。
 - 周报需验证公开 HTML 和主图都能访问。
 

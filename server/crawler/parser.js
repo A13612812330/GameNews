@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { scoreArticle } from "./scorer.js";
-import { contentFilter as haoyouFilter, extractGameName as extractHaoyouGameName, filterGameplayTags as filterHaoyouTags, cleanTimelineDate, cleanTimelineSummary, cleanDetailTitle, cleanUpdateTitle, parseCurrentUpdate, isWithinNextDays, extractHaoyouFollowerCount, extractHaoyouPublisher, extractHaoyouReviewCount, extractHaoyouReserveCount } from "./platforms/haoyou.js";
+import { contentFilter as haoyouFilter, extractGameName as extractHaoyouGameName, filterGameplayTags as filterHaoyouTags, cleanTimelineDate, cleanTimelineSummary, cleanDetailTitle, cleanUpdateTitle, parseCurrentUpdate, isWithinNextDays, extractHaoyouFollowerCount, extractHaoyouPublisher, extractHaoyouReviewCount, extractHaoyouReserveCount, pickHaoyouEventImages, pickHaoyouVideos } from "./platforms/haoyou.js";
 import { contentFilter as taptapFilter, hashtagFilter as taptapHashtagFilter, hotTopicFilter as taptapHotTopicFilter, extractTapTapFollowerCount, extractTapTapPublisher, extractTapTapReviewCount, extractTapTapReserveCount } from "./platforms/taptap.js";
 import { contentFilter as jiuyouFilter } from "./platforms/ninegame.js";
 import { contentFilter as gamerskyFilter, cleanTitle as cleanGamerskyTitle, extractGameName as extractGamerskyGameName } from "./platforms/gamersky.js";
@@ -541,7 +541,7 @@ export function parseDetail(html, { url, gameName, category }) {
   }
 
   if (selectors === "__haoyou__") {
-    const haoyou = parseHaoyouDetail($, url, gameName, category);
+    const haoyou = parseHaoyouDetail($, url, gameName, category, html);
     return { title: haoyou.title, paragraphs: haoyou.paragraphs, images: haoyou.images, quality: haoyou.quality, gameMatch: haoyou.gameMatch, facts: haoyou.facts };
   }
 
@@ -980,7 +980,7 @@ function buildTitle(gameName, category, rawTitle = "") {
 
 function normalize(s) { return (s||"").toLowerCase().replace(/\s+/g,""); }
 
-function parseHaoyouDetail($, url, expectedGameName = "", category = "") {
+function parseHaoyouDetail($, url, expectedGameName = "", category = "", rawHtml = "") {
   const isThread = url.includes("thread-");
   const meta = cleanText($("meta[name='description'],meta[property='og:description']").attr("content") || "");
   const forumTitle = isThread
@@ -1074,6 +1074,19 @@ function parseHaoyouDetail($, url, expectedGameName = "", category = "") {
   const normalizedText = normalize(`${gameTitle} ${(isThread ? threadParagraphs : allPs).join(" ")}`);
   const gameMatch = normalizedExpected && normalizedText.includes(normalizedExpected) ? "strong" : "weak";
   const isLaunchOrTest = category === "新游上线" || category === "测试公测";
+  // 好游时间线的列表封面是 256×256 游戏图标，直接用会让周报活动卡显示成游戏 logo。
+  // 这里把「活动/宣传大图」候选单独存一份（不放进 haoyouLayout，避免与
+  // 「更新动态不带历史图片布局」的既有约束冲突），由周报快照落盘时实测尺寸后择优。
+  //
+  // 候选有两个来源，播放器封面优先级更高：
+  //   ① 详情页播放器 `lb-vid` 的封面（`img.sp-img`）—— 实测 1280×720 / 1920×1080，
+  //      且 `alt` 常直接写着活动标题，属于**这条资讯自己的**宣传大图；
+  //   ② 游戏页/正文图集 —— 游戏的通用截图，较泛。
+  const videos = pickHaoyouVideos(rawHtml, url);
+  const eventImages = pickHaoyouEventImages(layout, {
+    videos,
+    activity: { gameName: expectedGameName || gameTitle },
+  });
   // 快爆时间线的“即将更新”既可能被归为版本更新，也可能因文案含“联动”被归为联动活动。
   // 两种都是游戏页的历史累计动态，必须只保留第一条，不能把旧图片/旧正文带进详情。
   const isCurrentHaoyouUpdate = !isThread && ["版本更新", "联动活动"].includes(category) && Boolean(currentUpdate.title);
@@ -1104,6 +1117,12 @@ function parseHaoyouDetail($, url, expectedGameName = "", category = "") {
       // 更新动态详情页的图片区是历史累计内容；当前活动仅使用列表封面，
       // 不能把历史图片布局保存下来供飞书、海报或详情弹窗二次读取。
       ...(!isCurrentHaoyouUpdate && layout.length ? { haoyouLayout: layout.slice(0, 160) } : {}),
+      // 活动大图候选与上面的历史图集是两件事：只保留排序后的少量 URL，
+      // 供周报活动卡把 256×256 图标升级成游戏活动/宣传大图。
+      ...(eventImages.length ? { haoyouEventImages: eventImages } : {}),
+      // 播放器封面原始信息（封面 + alt + mp4）。alt 就是活动标题，
+      // 保留下来便于排查「为什么某条活动用了这张图」。
+      ...(videos.length ? { haoyouVideos: videos.slice(0, 8) } : {}),
       ...(detailTags.length ? { haoyouTags: detailTags } : {}),
       ...(extractHaoyouPublisher($.html()) ? { haoyouPublisher: extractHaoyouPublisher($.html()) } : {}),
       ...(Number.isFinite(extractHaoyouReviewCount($.html())) ? { haoyouReviewCount: extractHaoyouReviewCount($.html()) } : {}),

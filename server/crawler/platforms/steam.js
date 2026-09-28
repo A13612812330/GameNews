@@ -397,6 +397,10 @@ async function fetchMostPlayedChart(limit = 15) {
         items: baseItems.map((item) => ({
           ...item,
           name: item.name || `Steam App ${item.id}`,
+          // parseMostPlayedApi 只产出 {id,rank,dailyPeak}，没有封面字段；
+          // 这里必须补空串，否则 undefined 会一路传到 SQLite 绑定层报
+          // “Provided value cannot be bound to SQLite parameter 8”，整轮抓取归零。
+          imageUrl: item.imageUrl || "",
           detailUrl: `https://store.steampowered.com/app/${item.id}/?cc=CN&l=schinese`,
           tags: [],
           storePageStatus: "fetch_failed",
@@ -437,7 +441,7 @@ async function fetchTopSellingCNChart(limit = 15) {
       return detail ? {
         ...item,
         name: detail.gameName || item.name,
-        imageUrl: detail.imageUrl || item.imageUrl,
+        imageUrl: detail.imageUrl || item.imageUrl || "",
         tags: detail.tags || [],
         genres: detail.genres || [],
         categories: detail.categories || [],
@@ -480,7 +484,7 @@ export async function fetchSteamChartItems({ limit = 15 } = {}) {
     return {
       title: `《${item.name}》${isMostPlayed ? "Steam 热玩榜" : "Steam 畅销榜（中国区）"} #${item.rank}`,
       gameName: item.name, category: isMostPlayed ? "Steam 热玩榜" : "Steam 畅销榜（中国区）",
-      detailUrl: item.detailUrl, imageUrl: item.imageUrl, sourceId: "ref-steam", sourceName: "Steam",
+      detailUrl: item.detailUrl, imageUrl: item.imageUrl || "", sourceId: "ref-steam", sourceName: "Steam",
       score: Math.max(50, 100 - item.rank), paragraphs: item.descriptionSnippet ? [item.descriptionSnippet] : [],
       tags: item.tags || [], genres: item.genres || [], categories: item.categories || [],
       potentialScore: item.potentialScore || 0, rejectReasons: item.rejectReasons || [], dateText: new Date().toLocaleDateString("zh-CN"),

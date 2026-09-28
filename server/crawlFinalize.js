@@ -14,14 +14,14 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export async function finalizeCrawlRun({ root = projectRoot, keepDays = 7, log = () => {} } = {}) {
   const result = { weeklySnapshot: null, cleanup: null, raw: null, archive: null, warnings: [] };
 
-  // 快照与活跃库均保留最近 7 天和未来事件；图片只引用远程 URL。
+  // 资讯活跃库继续按 keepDays 清理；周报快照独立保留 30 天，并只保存每篇主图。
   if (root) {
     try {
       const migrated = migrateActiveArticlesToRemoteUrls();
       const { articles } = listArticles({ limit: 200 });
       result.weeklySnapshot = await writeWeeklyMaterialSnapshot({ root, articles });
-      const retention = await archiveExpiredWeeklySnapshots({ root, keepDays, stage: true });
-      log(`周报素材已快照 ${result.weeklySnapshot.articleCount} 条，图片仅保留 URL${migrated.changed ? `，迁移 ${migrated.changed} 条旧图片引用` : ""}${retention.deleted ? `，归档并清理 ${retention.deleted} 份过期周报快照` : ""}`);
+      const retention = await archiveExpiredWeeklySnapshots({ root, keepDays: 30, stage: true });
+      log(`周报素材已快照 ${result.weeklySnapshot.articleCount} 条，主图已保存 ${result.weeklySnapshot.copiedAssets} 张${migrated.changed ? `，迁移 ${migrated.changed} 条旧图片引用` : ""}${retention.deleted ? `，归档并清理 ${retention.deleted} 份过期周报快照` : ""}`);
     } catch (error) {
       result.warnings.push(`周报素材快照失败：${error.message}`);
     }

@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
+import { imageSize, isEventBannerSize } from "./imageSize.js";
 
 function shanghaiDateKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -20,6 +22,195 @@ function snapshotArticle(article) {
     paragraphs: Array.isArray(article.paragraphs) ? article.paragraphs : safeJson(article.paragraphs, []),
     images: Array.isArray(article.images) ? article.images : safeJson(article.images_json, []),
   };
+}
+
+function imageValue(image = {}) {
+  return typeof image === "string"
+    ? image
+    : image?.localUrl || image?.src || image?.originalUrl || image?.url || "";
+}
+
+function primaryImage(article = {}) {
+  const images = Array.isArray(article.images) ? article.images : [];
+  return article.image_url || images.map(imageValue).find(Boolean) || "";
+}
+
+function safeImageName(value = "", contentType = "") {
+  const typeExt = String(contentType).match(/^image\/(png|jpe?g|webp|gif|avif)/iu)?.[1]?.toLowerCase();
+  const ext = typeExt || String(value).match(/\.(png|jpe?g|webp|gif|avif)(?:[?#].*)?$/iu)?.[1]?.toLowerCase() || "jpg";
+  const hash = crypto.createHash("sha1").update(String(value)).digest("hex").slice(0, 16);
+  return `main-${hash}.${ext === "jpeg" ? "jpg" : ext}`;
+}
+
+/**
+ * 源站图片基本都按 Referer 做防盗链，而且**要求各不相同**：
+ * TapTap 收到站外 Referer 回 567、机核/游民回 403，但都不带 Referer 时放行；
+ * 好游快爆两种都放行。原先统一发 `https://www.3839.com/` 的结果是
+ * TapTap / 机核 / 游民的主图全部落不了盘 —— 只有 113/130 张成功。
+ * 因此按图片域名给对应站点 Referer，失败再退回「不带 Referer」。
+ */
+const IMAGE_REFERERS = [
+  [/tapimg\.com/iu, "https://www.taptap.cn/"],
+  [/gcores\.com/iu, "https://www.gcores.com/"],
+  [/gamersky\.com/iu, "https://www.gamersky.com/"],
+  [/(?:71acg|3839img|3839video)\.com/iu, "https://www.3839.com/"],
+];
+
+function refererCandidates(value = "") {
+  let host = "";
+  try { host = new URL(value).host; } catch {}
+  const matched = IMAGE_REFERERS.find(([pattern]) => pattern.test(host));
+  return matched ? [matched[1], ""] : [""];
+}
+
+async function fetchImageBody(value) {
+  let lastError = null;
+  for (const referer of refererCandidates(value)) {
+    try {
+      const headers = { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" };
+      if (referer) headers.referer = referer;
+      const response = await fetch(value, { headers, signal: AbortSignal.timeout(15000) });
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok || !contentType.startsWith("image/")) throw new Error(`image ${response.status}`);
+      const body = Buffer.from(await response.arrayBuffer());
+      if (!body.length || body.length > 4 * 1024 * 1024) throw new Error("image empty or too large");
+      return { body, contentType };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("image fetch failed");
+}
+
+async function fetchImageBodySafe(value) {
+  try {
+    return await fetchImageBody(value);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 好游快爆「即将更新 / 即将测试 / 即将上线」条目的列表封面都是 256×256 游戏图标。
+ * 周报活动卡要的是活动/宣传大图，因此按解析阶段排好的候选顺序下载并**实测**像素尺寸：
+ * 只接受「长边 ≥600、短边 ≥300、长宽比 ≥1.3」的图（判定见 server/imageSize.js）。
+ *
+ * 是否属于「活动」与周报分类保持一致（更新类，或更新文案是版本/活动/联动/赛季/福利）。
+ * 全部不合格时返回 null —— 宁可继续显示图标，也不能把另一张图标当大图用。
+ */
+const EVENT_BANNER_ATTEMPTS = 3;
+// 与 weeklyPoster.classify 的好游活动判定保持一致；两者必须同改。
+const HAOYOU_ACTIVITY_TEXT = /(?:版本|更新|活动|联动|赛季|周年|福利|开启)/u;
+
+export function isHaoyouActivity(article = {}) {
+  if (article.source_id !== "ref-haoyou") return false;
+  const facts = article.facts || {};
+  return facts.haoyouKind === "update" || HAOYOU_ACTIVITY_TEXT.test(String(facts.haoyouUpdateContent || ""));
+}
+
+async function pickHaoyouEventBanner(article = {}) {
+  if (!isHaoyouActivity(article)) return null;
+  const facts = article.facts || {};
+  const cover = primaryImage(article);
+  const seen = new Set();
+  const candidates = [];
+  for (const item of facts.haoyouEventImages || []) {
+    const value = item?.url || item?.src || item || "";
+    if (!value || value === cover || seen.has(value)) continue;
+    seen.add(value);
+    candidates.push(value);
+  }
+  if (!candidates.length) return null;
+  let attempts = 0;
+  for (const value of candidates) {
+    if (attempts >= EVENT_BANNER_ATTEMPTS) break;
+    attempts += 1;
+    const downloaded = await fetchImageBodySafe(value);
+    if (!downloaded) continue;
+    if (!isEventBannerSize(imageSize(downloaded.body))) continue;
+    return { value, ...downloaded };
+  }
+  return null;
+}
+
+function eventBannerImage(value, localUrl) {
+  return {
+    id: "weekly-event-banner",
+    type: "event_banner",
+    src: value,
+    url: value,
+    originalUrl: value,
+    localUrl,
+    alt: "活动大图",
+  };
+}
+
+async function persistImageBody({ root, date, value, body, contentType }) {
+  const assetDir = path.join(root, "data", "weekly-snapshots", date, "assets");
+  await fs.mkdir(assetDir, { recursive: true });
+  const fileName = safeImageName(value, contentType);
+  await fs.writeFile(path.join(assetDir, fileName), body);
+  return `/weekly-assets/${date}/assets/${fileName}`;
+}
+
+async function copyPrimaryImage({ root, date, article }) {
+  const value = primaryImage(article);
+  if (!value) return { value: "", localUrl: "", copied: false };
+  const assetDir = path.join(root, "data", "weekly-snapshots", date, "assets");
+  let fileName = safeImageName(value);
+  const target = path.join(assetDir, fileName);
+  try {
+    await fs.mkdir(assetDir, { recursive: true });
+    if (String(value).startsWith("/crawler-assets/")) {
+      const source = path.join(root, "data", String(value).slice("/crawler-assets/".length).replaceAll("/", path.sep));
+      await fs.copyFile(source, target);
+    } else if (/^https?:\/\//iu.test(String(value))) {
+      const { body, contentType } = await fetchImageBody(value);
+      fileName = safeImageName(value, contentType);
+      const typedTarget = path.join(assetDir, fileName);
+      await fs.writeFile(typedTarget, body);
+      if (typedTarget !== target) await fs.rm(target, { force: true });
+      return { value, localUrl: `/weekly-assets/${date}/assets/${fileName}`, copied: true };
+    } else {
+      return { value, localUrl: "", copied: false };
+    }
+    return { value, localUrl: `/weekly-assets/${date}/assets/${fileName}`, copied: true };
+  } catch {
+    try { await fs.rm(target, { force: true }); } catch {}
+    return { value, localUrl: "", copied: false };
+  }
+}
+
+async function withPrimaryImage({ root, date, article }) {
+  const copied = await copyPrimaryImage({ root, date, article });
+  const original = copied.value || "";
+  const images = original
+    ? [{ id: "weekly-main", src: original, url: original, originalUrl: original, localUrl: copied.localUrl, type: "cover_candidate" }]
+    : [];
+  // 活动条目额外落一张实测过的活动大图：卡片按分区各取所需 ——
+  // 活动区走 event_banner，新游/榜单区仍走第一张（游戏图标）。
+  const banner = await pickHaoyouEventBanner(article);
+  if (banner) {
+    try {
+      images.push(eventBannerImage(banner.value, await persistImageBody({ root, date, ...banner })));
+    } catch {
+      // 大图落盘失败不影响封面：卡片退回图标。
+    }
+  }
+  return { ...article, image_url: original, images, images_json: undefined };
+}
+
+/**
+ * 单条素材的「活动大图」升级：与快照同一套判定，供历史快照回填脚本复用。
+ * 返回 `{ images }`（在原封面上追加 event_banner）；没有合格大图时返回 null。
+ */
+export async function upgradeHaoyouEventImage({ root, date, article }) {
+  const banner = await pickHaoyouEventBanner(article);
+  if (!banner) return null;
+  const localUrl = await persistImageBody({ root, date, ...banner });
+  const existing = (Array.isArray(article.images) ? article.images : [])
+    .filter((item) => item && item.type !== "event_banner");
+  return { images: [...existing, eventBannerImage(banner.value, localUrl)] };
 }
 
 function cleanGameKey(value = "") {
@@ -114,7 +305,8 @@ function selectWeeklyMaterials(articles) {
 
 /**
  * 每日抓取完成后，把仍在活跃库中的完整文章固化为周报素材。
- * 图片仅保留远程 URL，不复制本地图片缓存。
+ * 每篇只保留一张主图，并**落盘到同目录 assets/**（`/weekly-assets/<date>/assets/...`），
+ * 因为源站对站外 Referer 有防盗链，公开链接只能引用本地副本。
  */
 export async function writeWeeklyMaterialSnapshot({ root, articles = [], generatedAt = new Date() }) {
   const date = shanghaiDateKey(generatedAt);
@@ -123,14 +315,21 @@ export async function writeWeeklyMaterialSnapshot({ root, articles = [], generat
   await fs.rm(snapshotDir, { recursive: true, force: true });
   await fs.mkdir(snapshotDir, { recursive: true });
 
-  const normalized = selectWeeklyMaterials(articles.map(snapshotArticle));
+  const selected = selectWeeklyMaterials(articles.map(snapshotArticle));
+  const normalized = [];
+  let copiedAssets = 0;
+  for (const article of selected) {
+    const item = await withPrimaryImage({ root, date, article });
+    if (item.images?.[0]?.localUrl) copiedAssets += 1;
+    normalized.push(item);
+  }
 
   const snapshot = {
-    version: 2,
+    version: 3,
     date,
     generatedAt: generatedAt.toISOString(),
     articleCount: normalized.length,
-    copiedAssets: 0,
+    copiedAssets,
     articles: normalized,
   };
   await fs.writeFile(path.join(snapshotDir, "materials.json"), JSON.stringify(snapshot, null, 2), "utf8");

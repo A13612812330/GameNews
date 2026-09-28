@@ -70,6 +70,16 @@ function posterGameKey(article = {}) {
     .toLowerCase();
 }
 
+// 标题归一键：去掉日期与标点后比较。date_text 常把活动文案里的未来日期
+//（如“10月15日登录领”）抽成事件日期，导致同一条活动被“日期相隔过远”
+// 误判为两条（异环 1.4 案例），标题一致时必须无条件合并。
+function posterTitleKey(title = "") {
+  return String(title || "")
+    .replace(/\d{1,2}月\d{1,2}日?/gu, "")
+    .replace(/[\s，,。：:；;、【】\[\]（）()「」『』·！!？?\-—～~*]+/gu, "")
+    .slice(0, 48);
+}
+
 function preferTapTapForSameGame(rows = []) {
   const tapTapGames = new Set(
     rows
@@ -254,8 +264,10 @@ function dedupePosterEvents(rows = [], assetBase) {
     const primaryRows = taps.length ? taps : group;
     for (const item of primaryRows) {
       const date = posterDateValue(item.date_text);
+      const titleKey = posterTitleKey(item.title);
       const index = selected.findIndex((current) => {
         if (posterGameKey(current) !== posterGameKey(item)) return false;
+        if (titleKey && posterTitleKey(current.title) === titleKey) return true;
         const currentDate = posterDateValue(current.date_text);
         return date == null || currentDate == null || Math.abs(date - currentDate) <= 2 * 86400000;
       });
@@ -294,17 +306,145 @@ function cardFor(article, assetBase, index = 0, { hideDetailButton = false, show
   </article>`;
 }
 
+// 活动缩略图必须使用**带 assetBase 的绝对地址**：此前这里传空串，
+// remoteImage 会退化出 `/api/image-proxy?url=...` 这种相对路径，用 file://
+// 直接打开海报时全部 404 —— 这就是“看不到活动图”的根因。
+// 活动标题换行优化，三步：
+// ① 标题开头常重复卡片上已经写过的游戏名（如卡片「邂逅在迷宫」+ 标题
+//    「《邂逅在迷宫》公测五周年」），去掉重复前缀，省下的那一行留给真正的内容；
+//    只在前缀**等于本卡游戏名**时才剥离 —— 「战双帕弥什」标题里的
+//    《约会大作战V》是联动方，不能误删。
+// ② 纯靠 CSS 做不到「只在标点处换行」：word-break:keep-all 只禁掉汉字之间
+//    的断点，Chrome 的 CJK 分词仍会在「」、『』这类括号边界给断点，于是出现
+//    “新角色 /「狩勋女巫红弩箭」”这种半句悬挂。所以改为**在 JS 里按标点预排**
+// ③ 贪心装箱：按标点切段后，把段拼成不超过 maxUnits 的行，行尾正好落在标点上。
+//    这样断点确定、每行都填得比较满，也不丢内容（不像强制一段一行那样留白）。
+const TITLE_PART_SPLIT = /(?<=[，；。！!])/u;
+const TITLE_UNIT = /[\u2E80-\u9FFF\u3000-\u303F\uFF00-\uFFEF]/u;
+
+// 中文字按 1 格、西文按 0.55 格估算宽度，用于决定一行放几段。
+function titleUnits(text = "") {
+  let total = 0;
+  for (const ch of String(text)) total += TITLE_UNIT.test(ch) ? 1 : 0.55;
+  return total;
+}
+
+function packTitleLines(text = "", maxUnits = 38) {
+  const parts = String(text).split(TITLE_PART_SPLIT).map((part) => part.trim()).filter(Boolean);
+  if (parts.length <= 1) return [String(text).trim()];
+  const lines = [];
+  let current = "";
+  for (const part of parts) {
+    // 单段本身就超长时只能自己占一行（交由浏览器在该行内自然折行）。
+    if (current && titleUnits(current + part) > maxUnits) {
+      lines.push(current);
+      current = part;
+    } else {
+      current += part;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function escapeRegExp(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function eventTitleText(article = {}, game = "") {
+  const raw = cleanText(article.title || "");
+  if (!raw || !game || game === "未识别游戏") return raw;
+  const name = escapeRegExp(game);
+  // 允许《X》X：X、X，X - 这类前缀分隔符，但不允许完全没有分隔符时吞掉正文。
+  const prefix = new RegExp(`^《\\s*${name}\\s*》\\s*[：:、,，—\\-–·]?\\s*|^${name}\\s*[：:、,，—\\-–·]\\s*`, "u");
+  const stripped = raw.replace(prefix, "");
+  return stripped.length >= 4 ? stripped : raw;
+}
+
+// 预排好的行用 <br> 落地，断点确定；行内仍可自然折行兜底（窄屏时）。
+function eventTitleMarkup(article = {}, game = "") {
+  return packTitleLines(eventTitleText(article, game))
+    .map((line) => escapeHtml(line))
+    .join("<br />");
+}
+
+function compactEventCard(article, assetBase) {
+  const image = imageFor(article, assetBase);
+  const game = cleanGameName(article.game_name) || "未识别游戏";
+  const title = eventTitleMarkup(article, game);
+  const original = article.detail_url || "#";
+  const thumb = image
+    ? `<span class="poster-event-thumb"><img src="${escapeHtml(image)}" alt="${escapeHtml(game)}" loading="lazy" /></span>`
+    : `<span class="poster-event-thumb poster-event-thumb--empty">${escapeHtml(game.slice(0, 2))}</span>`;
+  return `<article class="poster-event-item">${thumb}
+    <div class="poster-event-item-body"><div class="poster-event-item-head"><b>${escapeHtml(game)}</b><span class="poster-event-src">${escapeHtml(article.source_name || "")}</span></div>
+    <a class="poster-event-item-title" href="${escapeHtml(original)}" target="_blank" rel="noreferrer">${title}</a></div>
+  </article>`;
+}
+
+// 运营动态按标题语义分块。27 条混在一个网格里没有层次，读起来就是“长墙”；
+// 拆成 版本更新 / 活动 / 联动 / 折扣 · 促销 四块后同题材内容聚在一起，
+// 每块自带小标题与条数，扫读成本明显下降。
+const EVENT_KIND_RULES = [
+  // 折扣必须最先判定：促销标题里常同时出现“版本”“联动”，归到折扣才准确。
+  { key: "promo", test: /折扣|史低|大促|促销|特惠|买断制|限时\s*\d+(?:\.\d+)?\s*元|\d+(?:\.\d+)?\s*元(?:史低|折扣|特惠)/u },
+  { key: "version", test: /版本|赛季|V\d+\.\d+|新角色|新英雄|新干员|新地图|新地区|新首领|新神明|新异界|新宠物|新职业|新剧情|全新(?:地区|地图|职业|主线|剧情|内容)/iu },
+  { key: "collab", test: /联动|联名|[×✕]/u },
+];
+const EVENT_KIND_LABELS = { version: "版本更新", activity: "活动", collab: "联动", promo: "折扣 · 促销" };
+const EVENT_KIND_ORDER = ["version", "activity", "collab", "promo"];
+
+function eventKindOf(article = {}) {
+  // 只用标题判定：正文摘要常夹带无关的“联动/折扣”字样，会把归类带偏。
+  const text = cleanText(article.title || "");
+  for (const rule of EVENT_KIND_RULES) if (rule.test.test(text)) return rule.key;
+  return "activity";
+}
+
+function eventBlockMarkup(key, rows, assetBase) {
+  if (!rows.length) return "";
+  return `<div class="poster-event-block poster-event-block--${key}"><div class="poster-event-block-head"><i></i><h3>${escapeHtml(EVENT_KIND_LABELS[key] || "活动")}</h3><b>${rows.length}</b></div><div class="poster-event-grid">${rows.map((article) => compactEventCard(article, assetBase)).join("")}</div></div>`;
+}
+
 function eventColumns(rows, assetBase) {
   const deduped = dedupePosterEvents(rows, assetBase);
-  const tapTap = deduped.filter((article) => article.source_id === "ref-taptap");
-  const haoyou = deduped.filter((article) => article.source_id === "ref-haoyou");
-  const renderColumn = (label, sourceRows, sourceId) => `<div class="poster-event-column poster-event-column--${sourceId}">
-    <header><span>${escapeHtml(label)}</span><small>${sourceRows.length} 条</small></header>
-    <div class="poster-grid">${sourceRows.map((article, index) => cardFor(article, assetBase, index, sourceId === "haoyou"
-      ? { eventLayout: "haoyou", omitDetailImages: true }
-      : { eventLayout: true })).join("") || '<p class="poster-column-empty">暂无符合条件的资讯</p>'}</div>
-  </div>`;
-  return `<section class="poster-section poster-section--events"><header class="poster-section-title"><span>02</span><h2>版本更新 / 活动 / 联动</h2><small>${deduped.length} 条（同游戏同日事件已合并）</small></header><div class="poster-event-columns">${renderColumn("TapTap", tapTap, "taptap")}${renderColumn("好游快爆", haoyou, "haoyou")}</div></section>`;
+  const groups = new Map();
+  for (const article of deduped) {
+    const key = eventKindOf(article);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(article);
+  }
+  for (const group of groups.values()) {
+    group.sort((a, b) => posterDetailWeight(b, assetBase) - posterDetailWeight(a, assetBase));
+  }
+  const blocks = EVENT_KIND_ORDER
+    .filter((key) => groups.has(key))
+    .map((key) => eventBlockMarkup(key, groups.get(key), assetBase))
+    .join("");
+  return `<section class="poster-section poster-section--events"><header class="poster-section-title"><span>02</span><h2>版本更新 / 活动 / 联动</h2><small>${deduped.length} 条 · 按内容分块</small></header>${blocks}</section>`;
+}
+
+// 热榜话题改为排行榜单列：序号 + 封面 + 游戏名 / 话题 / 摘要，一列读到底。
+function topicRankCard(article, assetBase, rank = 0) {
+  const image = imageFor(article, assetBase);
+  const game = cleanGameName(article.game_name) || "未识别游戏";
+  const title = article.title || game;
+  const original = article.detail_url || "#";
+  const summary = summaryFor(article);
+  const thumb = image
+    ? `<span class="poster-topic-rank-thumb"><img src="${escapeHtml(image)}" alt="${escapeHtml(game)}" loading="lazy" /></span>`
+    : `<span class="poster-topic-rank-thumb is-empty">${escapeHtml(game.slice(0, 2))}</span>`;
+  return `<article class="poster-topic-rank">
+    <span class="poster-topic-rank-no${rank < 3 ? " is-top" : ""}">${String(rank + 1).padStart(2, "0")}</span>
+    ${thumb}
+    <div class="poster-topic-rank-body"><div class="poster-topic-rank-head"><h3>${escapeHtml(game)}</h3>${article.source_name ? `<span>${escapeHtml(article.source_name)}</span>` : ""}</div>
+    <a class="poster-topic-rank-title" href="${escapeHtml(original)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>
+    ${summary ? `<p>${escapeHtml(summary)}</p>` : ""}</div>
+  </article>`;
+}
+
+function topicColumns(rows, assetBase, sectionIndex) {
+  return `<section class="poster-section poster-section--topics"><header><span>0${sectionIndex + 1}</span><h2>热榜话题</h2><small>${rows.length} 条 · 按热榜排名</small></header><div class="poster-topic-rank-list">${rows.map((article, rank) => topicRankCard(article, assetBase, rank)).join("")}</div></section>`;
 }
 
 function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0.1:64424", generatedAt = new Date() } = {}) {
@@ -319,21 +459,61 @@ function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0
   }
   const sectionMarkup = [...buckets.entries()].filter(([, rows]) => rows.length).map(([name, rows], index) => {
     if (name === "版本更新 / 活动 / 联动") return eventColumns(rows, assetBase);
-    const isTopicSection = name === "热榜话题";
-    const compact = name === "手机游戏 · 即将上线" || name === "Steam";
-    return `<section class="poster-section poster-section--${isTopicSection ? "topics" : compact ? "compact" : "feature"}"><header><span>0${index + 1}</span><h2>${escapeHtml(name)}</h2><small>${rows.length} 条</small></header><div class="poster-grid">${rows.map((article, itemIndex) => cardFor(article, assetBase, itemIndex)).join("")}</div></section>`;
+    if (name === "热榜话题") return topicColumns(rows, assetBase, index);
+    // 「即将上线」单独成一类：它是一排窄卡（一行 5 个），与 Steam 的三列卡
+    // 在栅格、封面尺寸上都不一样，不能再共用 poster-section--compact。
+    const upcoming = name === "手机游戏 · 即将上线";
+    const compact = name === "Steam";
+    return `<section class="poster-section poster-section--${upcoming ? "upcoming" : compact ? "compact" : "feature"}"><header><span>0${index + 1}</span><h2>${escapeHtml(name)}</h2><small>${rows.length} 条</small></header><div class="poster-grid">${rows.map((article, itemIndex) => cardFor(article, assetBase, itemIndex)).join("")}</div></section>`;
   }).join("");
   const sections = sectionMarkup ? `${sectionMarkup}<style>
-    .poster-section--feature .poster-card:nth-child(n){grid-column:span 5;min-height:208px}.poster-section--topics .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.poster-section--topics .poster-card{grid-column:auto;grid-template-columns:160px minmax(0,1fr);min-height:130px}.poster-section--topics .poster-card:nth-child(odd):last-child{grid-column:1/-1}.poster-section--topics .poster-cover{min-height:130px}.poster-section--topics .poster-cover img{object-fit:cover}.poster-section--topics .poster-copy{padding:10px 13px}.poster-section--topics .poster-meta{font-size:10px}.poster-section--topics .poster-title{font-size:12px;line-height:1.36}.poster-section--topics .poster-copy>p{margin:5px 0;font-size:10px;line-height:1.5;-webkit-line-clamp:2}.poster-section--topics .poster-tags{display:none}
-    .poster-section--events{margin-top:38px}.poster-section--events>.poster-section-title{display:flex;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--ink)}.poster-section--events>.poster-section-title span{color:var(--coral);font:700 30px/.8 Georgia,serif}.poster-section--events>.poster-section-title h2{margin:0;font-size:20px;letter-spacing:.02em}.poster-section--events>.poster-section-title small{margin-left:auto;color:#697b78;font-size:11px}.poster-event-columns{display:grid;grid-template-columns:minmax(0,60fr) minmax(330px,40fr);gap:16px;margin-top:16px;align-items:start}.poster-event-column{min-width:0;padding:13px;border:1px solid var(--line);border-radius:13px;background:rgba(255,253,248,.62)}.poster-event-column>header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;padding:0 2px 9px;border-bottom:1px solid var(--line)}.poster-event-column>header span{color:var(--mint);font-size:14px;font-weight:800}.poster-event-column>header small{color:#758682;font-size:10px}.poster-event-column .poster-grid{grid-template-columns:1fr;gap:10px;margin-top:0}.poster-event-column--taptap .poster-card,.poster-event-column--taptap .poster-card.is-rich{grid-column:auto !important;height:180px;min-height:180px !important}.poster-event-column--taptap .poster-card--update.is-visual{grid-template-columns:minmax(176px,36%) minmax(0,1fr)}.poster-event-column--taptap .poster-card .poster-cover{height:180px;min-height:180px}.poster-event-column--taptap .poster-card .poster-cover img{object-fit:contain;object-position:center}.poster-event-column--taptap .poster-card .poster-copy--event{padding:10px 13px}.poster-event-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}.poster-event-title{color:var(--ink);font-size:19px;font-weight:900;line-height:1.38;text-decoration:none}.poster-event-title:hover{color:var(--mint);text-decoration:underline}.poster-event-meta{display:grid;gap:3px;justify-items:end;color:#758682;font-size:10px;font-weight:700;white-space:nowrap}.poster-event-game{margin-top:5px;color:#304c45;font-size:14px;font-weight:800}.poster-event-summary{margin:7px 0 5px !important;color:#2f5048 !important;font-size:13px !important;font-weight:800;line-height:1.45 !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.poster-event-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:1px}.poster-event-actions .poster-tags{margin-top:0}.poster-event-actions .poster-open{position:static;flex:0 0 auto;margin:0}.poster-event-column--taptap .poster-card .poster-copy{padding-bottom:10px}.poster-event-column--haoyou .poster-card,.poster-event-column--haoyou .poster-card.is-rich{grid-column:auto !important}.poster-card--haoyou-event{grid-template-columns:77px minmax(0,1fr);align-items:center;min-height:110px}.poster-card--haoyou-event .poster-cover{width:65px;height:65px;min-height:0;margin:0;align-self:center;justify-self:end;border:1px solid rgba(27,128,107,.16);border-radius:9px}.poster-card--haoyou-event .poster-cover img{width:100%;height:100%;object-fit:cover}.poster-copy--haoyou-event{align-self:center;min-height:0;padding:8px 11px 28px 5px;overflow:hidden}.poster-haoyou-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px}.poster-haoyou-heading h3{margin:0;color:var(--ink);font-size:13px;line-height:1.25;font-weight:900}.poster-haoyou-heading time{flex:0 0 auto;color:#758682;font-size:10px;font-weight:700}.poster-haoyou-title{display:-webkit-box;margin-top:2px;color:#294c43;font-size:12px;line-height:1.36;font-weight:900;text-decoration:none;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}.poster-haoyou-title:hover{color:var(--mint);text-decoration:underline}.poster-copy--haoyou-event .poster-tags{max-height:17px;margin-top:3px;overflow:hidden}.poster-haoyou-summary{display:-webkit-box;margin:3px 0 0 !important;color:#536560 !important;font-size:10px !important;line-height:1.3 !important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.poster-copy--haoyou-event .poster-open{right:10px;bottom:7px}.poster-column-empty{margin:6px 0;color:#758682;font-size:12px}
+    .poster-section--feature .poster-card:nth-child(n){grid-column:span 5;min-height:208px}
+    .poster-section--topics .poster-topic-rank-list{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+    .poster-topic-rank{display:grid;grid-template-columns:44px 84px minmax(0,1fr);gap:13px;align-items:center;padding:11px 15px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
+    .poster-topic-rank-no{text-align:center;color:#b3c4bf;font:700 22px/1 Georgia,serif;letter-spacing:-.02em}
+    .poster-topic-rank-no.is-top{color:var(--coral)}
+    .poster-topic-rank-thumb{display:grid;place-items:center;width:84px;height:84px;overflow:hidden;border-radius:10px;background:var(--mist);color:var(--mint);font:700 18px Georgia,serif}
+    .poster-topic-rank-thumb img{width:100%;height:100%;object-fit:cover}
+    .poster-topic-rank-body{display:flex;flex-direction:column;gap:4px;min-width:0}
+    .poster-topic-rank-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+    .poster-topic-rank-head h3{margin:0;font-size:15px;line-height:1.25}
+    .poster-topic-rank-head span{flex:0 0 auto;padding:2px 7px;border-radius:999px;background:rgba(27,128,107,.1);color:var(--mint);font-size:9px;font-weight:800}
+    .poster-topic-rank-title{color:var(--ink);font-size:13.5px;font-weight:800;line-height:1.38;text-decoration:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .poster-topic-rank-title:hover{color:var(--mint);text-decoration:underline}
+    .poster-topic-rank-body>p{margin:0;color:#536560;font-size:11px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .poster-section--events{margin-top:38px}.poster-section--events>.poster-section-title{display:flex;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--ink)}.poster-section--events>.poster-section-title span{color:var(--coral);font:700 30px/.8 Georgia,serif}.poster-section--events>.poster-section-title h2{margin:0;font-size:20px;letter-spacing:.02em}.poster-section--events>.poster-section-title small{margin-left:auto;color:#697b78;font-size:11px}
+    .poster-event-block{margin-top:16px}
+    .poster-event-block-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+    .poster-event-block-head i{width:4px;height:15px;border-radius:2px;background:var(--mint)}
+    .poster-event-block--promo .poster-event-block-head i{background:var(--coral)}
+    .poster-event-block-head h3{margin:0;font-size:14px;font-weight:800;letter-spacing:.04em}
+    .poster-event-block-head b{padding:1px 8px;border-radius:999px;background:var(--mist);color:var(--mint);font-size:10px;font-weight:800}
+    .poster-event-block-head:after{content:"";flex:1;height:1px;background:var(--line)}
+    .poster-event-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .poster-event-item{display:grid;grid-template-columns:72px minmax(0,1fr);gap:13px;align-items:center;padding:10px 13px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
+    .poster-event-thumb{display:grid;place-items:center;width:72px;height:72px;overflow:hidden;border-radius:10px;background:var(--mist)}
+    .poster-event-thumb img{width:100%;height:100%;object-fit:cover}
+    .poster-event-thumb--empty{color:var(--mint);font:700 18px Georgia,serif}
+    .poster-event-item-body{display:flex;flex-direction:column;gap:5px;min-width:0}
+    .poster-event-item-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+    .poster-event-item-head b{overflow:hidden;color:var(--ink);font-size:17px;line-height:1.26;letter-spacing:-.01em;text-overflow:ellipsis;white-space:nowrap}
+    .poster-event-src{flex:0 0 auto;padding:2px 7px;border-radius:999px;background:rgba(27,128,107,.1);color:var(--mint);font-size:9px;font-weight:800}
+    .poster-event-item-title{color:#41605a;font-size:12px;line-height:1.6;font-weight:600;text-decoration:none;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;line-break:strict}
+    .poster-event-item-title:hover{color:var(--mint);text-decoration:underline}
     .poster-section--feature .poster-card.is-rich{grid-column:span 7 !important;min-height:296px !important}
     .poster-section--feature .poster-card.is-rich.is-visual{grid-template-columns:minmax(235px,47%) minmax(0,1fr)}
     .poster-section--feature .poster-card:not(.is-rich){grid-column:span 5 !important;min-height:208px !important}
     .poster-cover img{object-fit:contain;background:var(--mist)}
-    .poster-card--upcoming{height:130px;min-height:130px}
-    .poster-card--upcoming .poster-copy{padding:7px 10px}
-    .poster-card--upcoming .poster-copy>p{margin:3px 0;line-height:1.38}
-    .poster-card--upcoming .poster-tags{margin-top:4px}
+    .poster-section--upcoming .poster-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+    .poster-card--upcoming{grid-column:auto;grid-template-columns:70px minmax(0,1fr);gap:11px;align-items:center;height:98px;min-height:98px;padding:0 11px 0 12px;border-radius:10px}
+    .poster-card--upcoming .poster-copy{padding:0;justify-content:center}
+    .poster-card--upcoming .poster-cover,.poster-card--upcoming .poster-cover.is-contain{width:70px;height:70px;min-height:0;align-self:center;padding:0;border-radius:9px}
+    .poster-card--upcoming .poster-cover img{width:100%;height:100%;object-fit:cover;border-radius:9px}
+    .poster-card--upcoming .poster-cover.is-empty b{font-size:24px}
+    .poster-card--upcoming .poster-copy h3{margin:0 0 4px;font-size:14px;line-height:1.26;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+    .poster-card--upcoming .poster-title{font-size:10px;line-height:1.36;font-weight:700;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+    .poster-card--upcoming .poster-copy>p{display:none}
+    .poster-card--upcoming .poster-tags{display:none}
     .poster-tags{margin-top:6px}
     .poster-copy{position:relative}
     .poster-card:not(.poster-card--upcoming):not(.poster-card--steam) .poster-copy{padding-bottom:44px}
@@ -346,8 +526,8 @@ function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0
     .poster-detail-toolbar strong{font-size:13px}.poster-detail-close{width:30px;height:30px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--ink);font-size:19px;cursor:pointer}
     .poster-detail-content{overflow:auto;padding:22px 24px 32px}.poster-detail-heading{display:flex;justify-content:space-between;gap:12px;color:#71827d;font-size:11px;font-weight:700}.poster-detail-content h2{margin:11px 0 4px;font-size:22px;line-height:1.35}.poster-detail-title{display:block;color:var(--mint);font-weight:800;font-size:15px;line-height:1.6;text-decoration:none}.poster-detail-title:hover{text-decoration:underline}
     .poster-detail-body{margin-top:18px;color:#374d48;font-size:14px;line-height:1.9}.poster-detail-body p{margin:0 0 14px;white-space:pre-wrap}.poster-detail-body .is-quote{padding:10px 13px;border-left:3px solid var(--mint);background:var(--mist)}.poster-detail-body h4{margin:22px 0 9px;color:var(--ink);font-size:17px}.poster-detail-body h5{margin:14px 0 5px;font-size:14px}.poster-detail-body figure{margin:18px 0;text-align:center}.poster-detail-body figure img{display:block;width:auto;max-width:100%;max-height:540px;margin:0 auto;object-fit:contain;border-radius:8px;background:var(--mist)}
-    @media(max-width:980px){.poster-section--feature .poster-card.is-rich,.poster-section--feature .poster-card:not(.is-rich){grid-column:auto !important}.poster-card--upcoming{height:130px;min-height:130px}.poster-event-columns{grid-template-columns:1fr}.poster-event-column--taptap .poster-card,.poster-event-column--taptap .poster-card.is-rich{height:auto;min-height:180px !important}}
-    @media(max-width:680px){.poster-card--upcoming{height:130px;min-height:130px}.poster-detail-content{padding:18px 16px 25px}.poster-detail-content h2{font-size:19px}.poster-detail-body figure img{max-height:390px}}
+    @media(max-width:980px){.poster-section--feature .poster-card.is-rich,.poster-section--feature .poster-card:not(.is-rich){grid-column:auto !important}.poster-section--upcoming .poster-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.poster-card--upcoming{height:98px;min-height:98px}.poster-event-grid{grid-template-columns:1fr}}
+    @media(max-width:680px){.poster-section--upcoming .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.poster-card--upcoming{height:92px;min-height:92px;grid-template-columns:62px minmax(0,1fr);gap:9px;padding:0 9px 0 10px}.poster-card--upcoming .poster-cover,.poster-card--upcoming .poster-cover.is-contain{width:62px;height:62px}.poster-detail-content{padding:18px 16px 25px}.poster-detail-content h2{font-size:19px}.poster-detail-body figure img{max-height:390px}}
   </style><dialog id="poster-detail-dialog"><div class="poster-detail-shell"><header class="poster-detail-toolbar"><strong>完整抓取内容</strong><button class="poster-detail-close" type="button" aria-label="关闭">×</button></header><div class="poster-detail-content"></div></div></dialog><script>
     (() => { const dialog = document.querySelector('#poster-detail-dialog'); const content = dialog?.querySelector('.poster-detail-content'); const close = dialog?.querySelector('.poster-detail-close'); document.querySelectorAll('[data-poster-detail]').forEach((button) => button.addEventListener('click', () => { const source = document.getElementById(button.dataset.posterDetail); if (!dialog || !content || !source) return; content.replaceChildren(source.content.cloneNode(true)); dialog.showModal(); })); close?.addEventListener('click', () => dialog.close()); dialog?.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); }); })();
   </script>` : "";

@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stage = process.argv.includes("--stage");
 const keepDays = 7;
+const weeklyKeepDays = 30;
 const execFileAsync = promisify(execFile);
 
 const result = {
@@ -16,7 +17,7 @@ const result = {
   activeImageMigration: stage ? migrateActiveArticlesToRemoteUrls() : null,
   articles: await archiveExpiredArticles({ root, keepDays, stage }),
   rawArchive: await archiveExpiredRawSnapshots({ root, keepDays, stage }),
-  weeklySnapshots: await archiveExpiredWeeklySnapshots({ root, keepDays, stage }),
+  weeklySnapshots: await archiveExpiredWeeklySnapshots({ root, keepDays: weeklyKeepDays, stage }),
 };
 
 if (stage) {
