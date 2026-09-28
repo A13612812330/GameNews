@@ -100,13 +100,48 @@ function isWithinNextThirtyDaysTapTap(timestampSeconds) {
   return timestamp >= today.getTime() && timestamp <= end.getTime();
 }
 
+// TapTap 接口对 UA 有要求：过短的 "Mozilla/5.0" 会被当成异常客户端，用完整桌面 UA 更稳。
+const TAPTAP_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
 function extractTapTapApiUrl(html, pathPart) {
+  // TapTap 已从 Next.js 迁到 Nuxt：页内接口地址改用 JSON 转义书写，形如
+  //   http:\u002F\u002Fwww.taptap.cn\u002Fwebapiv2\u002Fcalendar\u002Fv1\u002Fevent-list?X-UA=...
+  // 旧实现只认 \/ 这一种转义，于是改版后每个 TapTap 入口都提取不到接口，
+  // 结果是一批「0 条且 error=null」的静默失败（不报错、不重试、监控不告警）。
+  const normalized = String(html)
+    .replace(/\\u002F/gi, "/")
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\\//g, "/");
   const pattern = new RegExp(
-    `https?:\\\\?/\\\\?/www\\.taptap\\.cn\\\\?/webapiv2\\\\?/${pathPart}[^\\\\"]+`,
+    `https?://www\\.taptap\\.cn/webapiv2/${pathPart}[^"'\\s<>]+`,
     "i",
   );
-  const match = String(html).match(pattern);
-  return match?.[0]?.replace(/\\u0026/g, "&").replace(/\\\//g, "/") || "";
+  const match = normalized.match(pattern);
+  if (!match) return "";
+  return match[0].replace(/^http:\/\//i, "https://").replace(/&amp;/g, "&");
+}
+
+/**
+ * 「北京时间当天 12:00」的 unix 秒。
+ * 取 12:00 而不是 00:00：无论服务端按 UTC 还是 +08:00 判定日期，都落在同一自然日，
+ * 避免跨时区时把 day 算到前一天或后一天。
+ */
+function tapTapCalendarDay(now = new Date()) {
+  return Math.floor(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 4, 0, 0) / 1000,
+  );
+}
+
+/**
+ * calendar/v1/event-list 现在强制要求 day（unix 秒，缺参直接 400）。
+ * 页内下发的那条 URL 不保证带 day，缺失时补上当天。
+ */
+function withTapTapCalendarDay(url, now = new Date()) {
+  const value = String(url || "").replace(/^http:\/\//i, "https://");
+  if (!value) return "";
+  if (/[?&]day=\d+/.test(value)) return value;
+  return `${value}${value.includes("?") ? "&" : "?"}day=${tapTapCalendarDay(now)}`;
 }
 
 async function fetchTapTapJson(endpoint, referer) {
@@ -114,7 +149,7 @@ async function fetchTapTapJson(endpoint, referer) {
   try {
     const res = await fetch(endpoint, {
       headers: {
-        "user-agent": "Mozilla/5.0",
+        "user-agent": TAPTAP_UA,
         accept: "application/json",
         referer,
       },
@@ -683,62 +718,38 @@ export async function crawlCandidates(
           }
 
           if (["upcoming", "appCalendar"].includes(urlType)) {
-            // 官方 calendar API 的首屏默认仅返回 5 个日期；next_page 带游标，
-            // 必须连续读取，才能覆盖用户下拉后可见的即将上线/首发项目。
-            const apiEndpoint = extractTapTapApiUrl(
-              html,
-              "calendar/v1/upcoming",
+            // 2026-09 改版后 calendar/v1/upcoming 恒返回空 list（接口已废弃），
+            // 「今日游戏 / 即将上线」统一改走 calendar/v1/event-list：
+            // 它按天返回 list_a/list_b/list_c（首发、不限量测试、新游预约…，
+            // 单日实测 178 款），且强制要求 day=<unix 秒>，缺参直接 400。
+            const listEndpoint = withTapTapCalendarDay(
+              extractTapTapApiUrl(html, "calendar/v1/event-list"),
             );
-            if (apiEndpoint) {
-              const allCandidates = [];
-              let pageUrl = apiEndpoint;
-              for (let page = 0; page < 12 && pageUrl; page += 1) {
-                const payload = await fetchTapTapJson(pageUrl, url);
-                if (!payload?.data?.list?.length) break;
-                allCandidates.push(
-                  ...parseList(JSON.stringify(payload), { ...p, urlType }, url),
-                );
-                const next = payload?.data?.next_page || "";
-                if (!next) {
-                  pageUrl = "";
-                } else {
-                  // next_page 只给分页游标，不重复携带首屏请求中的 X-UA；
-                  // 缺少该参数会返回业务错误，表现为永远只有首屏四、五条。
-                  const nextUrl = new URL(next, pageUrl);
-                  const currentUrl = new URL(pageUrl);
-                  for (const key of ["X-UA"]) {
-                    if (
-                      !nextUrl.searchParams.has(key) &&
-                      currentUrl.searchParams.has(key)
-                    ) {
-                      nextUrl.searchParams.set(
-                        key,
-                        currentUrl.searchParams.get(key),
-                      );
-                    }
-                  }
-                  pageUrl = nextUrl.href;
-                }
-              }
-              if (allCandidates.length) candidates = allCandidates;
-            }
-          }
-
-          if (urlType === "appCalendar") {
-            // “今日游戏”独立使用 event-list：当前日期页同时包含首发、预下载、测试招募，
-            // 不是 /upcoming 的 calendar/v1/upcoming 分页接口。
-            const apiEndpoint = extractTapTapApiUrl(
-              html,
-              "calendar/v1/event-list",
-            );
-            if (apiEndpoint) {
-              const payload = await fetchTapTapJson(apiEndpoint, url);
+            if (listEndpoint) {
+              const payload = await fetchTapTapJson(listEndpoint, url);
               const calendarCandidates = parseList(
                 JSON.stringify(payload || {}),
                 { ...p, urlType },
                 url,
               );
               if (calendarCandidates.length) candidates = calendarCandidates;
+            }
+            if (!candidates?.length) {
+              // 兜底：top-events 是首屏推荐位（约 10 条），字段与 event-list 同构；
+              // 用于 event-list 临时抽风时不至于整源归零。
+              const topEndpoint = extractTapTapApiUrl(
+                html,
+                "calendar/v1/top-events",
+              );
+              if (topEndpoint) {
+                const payload = await fetchTapTapJson(topEndpoint, url);
+                const topCandidates = parseList(
+                  JSON.stringify(payload || {}),
+                  { ...p, urlType },
+                  url,
+                );
+                if (topCandidates.length) candidates = topCandidates;
+              }
             }
           }
 

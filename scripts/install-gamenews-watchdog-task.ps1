@@ -5,14 +5,40 @@ $taskName = "Komo-GameNews-Watchdog"
 $powershell = Join-Path $PSHOME "powershell.exe"
 if (-not (Test-Path $powershell)) { $powershell = "powershell.exe" }
 
-# 仅在当前用户登录后启动；不需要管理员权限，也不会在未登录时运行。
-$taskAction = "`"$powershell`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watchdog`""
-& schtasks.exe /Create /TN $taskName /SC ONLOGON /RL LIMITED /TR $taskAction /F | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  throw "无法创建登录自启任务。请以管理员身份运行此脚本，或继续使用 npm run start 手动启动。"
-}
-& schtasks.exe /Run /TN $taskName | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  throw "任务已创建，但无法立即启动。请在任务计划程序中手动运行：$taskName"
-}
-Write-Output "已创建并启动 $taskName"
+# 2026-09-28 fix: the previous version registered this task with
+# /SC ONLOGON, i.e. it fired exactly once per logon. The watchdog is a
+# resident loop (while($true) in gamenews-watchdog.ps1), so once it was
+# killed the 64424 / 64425 services lost their supervisor permanently --
+# measured: last run 09-21 14:25, exit code 3221225786
+# (STATUS_CONTROL_C_EXIT), nothing restarted it afterwards.
+#
+# Now: logon trigger + every 5 minutes, indefinitely. Because the watchdog
+# stays resident, each repeat hit is skipped by the scheduler
+# (MultipleInstances = IgnoreNew), so no duplicate supervisors appear;
+# if it does die, it is back within 5 minutes.
+#
+# Also sets ExecutionTimeLimit to zero (= unlimited). The default is 72h,
+# which would silently kill a resident supervisor every three days.
+#
+# Uses the ScheduledTasks cmdlets instead of schtasks.exe so it runs
+# without shelling out to a legacy binary.
+
+$action = New-ScheduledTaskAction -Execute $powershell `
+  -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watchdog`""
+
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+$trigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes 5) `
+    -RepetitionDuration (New-TimeSpan -Days 3650)).Repetition
+
+$settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew `
+  -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+  -ExecutionTimeLimit ([TimeSpan]::Zero) `
+  -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
+  -Settings $settings -Force | Out-Null
+
+Start-ScheduledTask -TaskName $taskName
+
+Write-Output "rebuilt and started $taskName (logon + self-heal every 5 min, no execution time limit)"
