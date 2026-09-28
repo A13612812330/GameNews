@@ -11,7 +11,7 @@ GameNews 面向手游资讯分发场景：从 TapTap、好游快爆、九游、�
 - **日报/周报海报**：生成 HTML 与 PNG 海报；正式产物归档在 `output/scheduled-posters/`。
 - **飞书集成**：支持飞书游戏库同步，以及海报机器人、新游/活动提醒机器人投递。
 - **本地定时运行**：爬虫监控、日报、周报、留档清理均由本机服务调度。
-- **GitHub 海报归档**：`published-posters/daily/` 与 `published-posters/weekly/` 仅保存对外归档的日报、周报，默认每日 09:00 自动同步到本私有仓库。
+- **GitHub 海报归档**：`published-posters/daily/` 与 `published-posters/weekly/` 保存对外归档的日报、周报，默认每日 09:00 自动同步到 GitHub 公开仓库 `A13612812330/GameNews`。归档前会把海报里的本机图片地址（`127.0.0.1:64424` 的本地快照副本与图片代理）落地成 `published-posters/assets/<日期>/` 下的相对路径副本（脚本 `scripts/archive-posters-selfcontained.mjs`），让归档**自包含** —— 外部访客直接打开就能看到图，不会满屏破图。
 
 > 安全说明：真实飞书密钥、群 ID、本地数据库、采集缓存、日志和备份均不会提交到 GitHub；跨电脑部署请复制 `.env.example` 为本机私有配置后再填写。
 
