@@ -519,15 +519,29 @@ https://github.com/A13612812330/GameNews
   不再只有手动抓取可见。手动抓取占用监控时自动让位。
 - **`database is locked` 加固**（`server/database.js`）：补 `PRAGMA busy_timeout = 10000`。
   此前只设 WAL、未设 timeout，默认 0 导致并发写立刻失败，
-  `runtime-logs/local-services/GameNews-api.log` 里累计 **121 次**、几乎每个整点的
-  `monitor-hourly` 都整轮失败。
+  `runtime-logs/local-services/GameNews-api.log` 里累计 **121 次**（164 轮里约 74%），
+  失败点固定停在「Step 2/3 补全新增或变化详情」。**注意这只是缓解**，不能阻止同时写。
+- **重复实例并发写库 → 单实例闸门**（`server/index.js`）。根因链：两套守护都会拉起
+  `server/index.js`（端口同 64424），而旧启动顺序是 `seedBuiltinSources()`（写库）
+  → `startScheduler()` → `app.listen()`，**写库发生在实例知道自己是重复实例之前**，
+  于是抢不到端口的重复实例在退出前已经写过库。实测它打印了
+  `[scheduler] 已有其他…持有调度锁`，却仍打开数据库、打印 API 地址、且不立即退出。
+  修法：新增 `data/logs/instance.lock` 闸门，`fs.openSync(..., "wx")`（O_EXCL）原子创建，
+  配 `process.kill(pid, 0)` 判活；死 pid 残留可接管（崩溃自恢复）、带 BOM 也能正确解析。
+  闸门在 `seedBuiltinSources()` 之前 ⇒ 重复实例**零副作用退出**。
+  另补 `app.listen` 的 `error` 处理：端口被其它程序占用时明确退出。
+  判据为何不用端口/`listen` 回调：Windows `SO_REUSEADDR` 允许重复 `bind`，
+  失败发生在 `listen` 阶段而 Node 已发出 `listening` 事件 —— 实测回调先执行、
+  `EADDRINUSE` 后到达。反证脚本 `scripts/verify-single-instance-guard.mjs`
+  （4 场景 15 条断言；反向验证：闸门判活改恒真后 6 条变红）。
 
 ### 待决策 / 未修
 
-- **64424 被两套守护同时负责**（跨项目，需确认）：本项目 `Komo-GameNews-Watchdog`
-  （每分钟）与工作区级 `Komo-Local-News-Services`
-  （`tools\local-services\watch-local-news-services.ps1`，每 300 秒，另管 64423 / 64111）。
-  两者都按端口判活并各自启动实例，是 `database is locked` 的主要来源之一。建议二选一。
+- ~~**64424 被两套守护同时负责**~~ → **风险已消除**（单实例闸门让重复实例零副作用退出）。
+  **仍建议收敛（二选一）**，理由是排查成本：两者日志落在不同位置
+  （本项目 `logs/` vs 工作区 `runtime-logs/local-services/`），且都会写
+  `data/logs/cron-result.json` 互相覆盖，同一时刻能看到两种候选数。
+  工作区守护属跨项目文件（`E:\新建文件夹\Codex-GPT\tools\local-services\`），改动需先确认。
 - `published-posters/assets` 无保留窗口；`data/backups` 139M + `data/weekly-snapshots`
   113M 无上限。
 - 抓取器在工作区守护的调用环境下可能撞到 `Path`/`PATH` 重复环境键，`Start-Process`
@@ -536,18 +550,22 @@ https://github.com/A13612812330/GameNews
 
 ### P0
 
-- 海报重复发送防护、周报图片路径修复、日报长图裁边改 Node 实现、scheduler 单实例锁仍有未提交修改。
+- ~~海报重复发送防护、周报图片路径修复、日报长图裁边改 Node 实现、scheduler 单实例锁仍有未提交修改。~~
+  → 已提交并推送（远端 `main` = `79d16e5`，本次闸门改动在其之后）。
 - 临时 Cloudflare 隧道地址可能失效，不能视为永久周报链接。
+- **4 个 `cloudflared` 隧道同时运行**（全指向 `127.0.0.1:64425`，启动于 09-21 08:31~08:35），
+  只应保留 1 个。
 
 ### P1
 
 - `.snapshots` 约 1.29 GiB，缺少自动生命周期。
 - ~~采集源「0 条」不告警~~ → 已实现连击告警；残余：尚未接入飞书机器人推送。
+- **定时日志时间戳是 UTC**：日志里 `[monitor-hourly 09:00:00]` 实际是北京时间 17:00。
 - `published-posters/assets` 无保留窗口，已随期数线性增长。
+- 前端 64423 跑的是 vite dev server（非构建产物），改代码不重启不生效。
 - 去重器处理“测试服”的规则与业务要求冲突。
 - README 仍包含已停用来源。
 - 缓存文档中同时存在 48 小时、7 天、30 天、90 天等旧口径。
-- `server/dailyPoster.js` 的日报版式改版（活动区按内容分块、标点对齐换行、即将上线一行 5 个、热榜改排行榜）已经项目负责人逐版确认，但代码与产物均**未提交**，改动与稳定性修复混在同一工作区里。
 - `server/dailyPoster.js` 的日报版式改版（活动区按内容分块、标点对齐换行、即将上线一行 5 个、热榜改排行榜）已经项目负责人逐版确认，但代码与产物均**未提交**，改动与稳定性修复混在同一工作区里。
 
 ### P2

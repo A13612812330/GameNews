@@ -297,8 +297,31 @@ scripts/preview-daily-poster.mjs
   原先只设了 `journal_mode=WAL`，没设 `busy_timeout`；node:sqlite 默认
   `busy_timeout=0`，任何并发写（子进程维护脚本、第二实例）都会立刻抛
   `database is locked` 而不是等待。`runtime-logs/local-services/GameNews-api.log`
-  里该报错累计 **121 次**，几乎每个整点的 `monitor-hourly` 都整轮失败。
+  里该报错累计 **121 次**（164 轮流水线里约 74%），失败点固定停在
+  「Step 2/3 补全新增或变化详情」——是当场抛错，不是慢。
   已加 `PRAGMA busy_timeout = 10000`（实测 `PRAGMA busy_timeout` 返回 10000）。
+  **这只是一层缓解**：它让冲突方多等 10 秒，并不能阻止两个进程同时写。
+  真正的根因见下一条。
+- **重复实例并发写库 → 已加单实例闸门**（`server/index.js`）。
+  根因链：两套守护（本项目 `Komo-GameNews-Watchdog` 每分钟 + 工作区级
+  `Komo-Local-News-Services` 每 5 分钟）都会拉起 `server/index.js`，端口同为 64424；
+  而旧启动顺序是 `seedBuiltinSources()`（**写库**）→ `startScheduler()`（抢调度锁）
+  → `app.listen()`（最后才抢端口）。**写库发生在「这个实例知道自己是不是重复实例」之前**，
+  于是注定抢不到端口的重复实例，在退出前已经和正式实例并发写同一个 SQLite。
+  实测：第二个实例会打印 `[scheduler] 已有其他 GameNews 服务实例持有调度锁`，
+  却**仍然打开数据库、打印 API 地址，并且不立即退出**。
+  修法：新增 `data/logs/instance.lock` 闸门，用 `fs.openSync(..., "wx")` 的 O_EXCL
+  原子语义保证「即使同时启动也只有一个能创建成功」，配合 `process.kill(pid, 0)` 判活；
+  死 pid 残留锁可被接管（崩溃后能自恢复），锁内容带 BOM 也能正确解析。
+  闸门位于 `seedBuiltinSources()` 之前 ⇒ 重复实例**零副作用退出**（不写库、不注册定时任务）。
+  另给 `app.listen` 补 `error` 处理：端口被**其它**程序占用时明确退出，
+  不再留下「不提供服务的沉默实例」。
+  为什么判据既不是端口、也不是 `listen` 回调：Windows 的 `SO_REUSEADDR` 允许重复
+  `bind`，失败发生在 `listen` 阶段，而 Node 已经把 `listening` 事件发出去了
+  —— 实测回调先执行、`EADDRINUSE` 后到达，因此拿不到「我是否独占端口」的可靠信号。
+  反证脚本 `scripts/verify-single-instance-guard.mjs`（4 场景 / 15 条断言，全绿）；
+  反向验证：把闸门判活改成恒真后 **6 条断言立刻变红**（B 场景 5 条 + D 场景 1 条），
+  证明断言确实在守护行为而非恒真。
 - **`hashtags` 入口**：源站 `/forum/hot/hashtags` 已 302 到 `/forum`，旧选择器
   `hot-hashtag-item` 在新页面 0 次出现。深挖发现 `HotHashtagItem` 的 CSS/JS
   **仍在预加载**，且 `/forum` 页面有 `<div data-column-id="hashtags">` 列切换条
@@ -309,13 +332,15 @@ scripts/preview-daily-poster.mjs
 
 ### 待决策 / 未修
 
-- **64424 被两套守护同时负责**（跨项目，需确认后再动）：
-  ① 本项目 `Komo-GameNews-Watchdog`（每分钟、项目自带）；
-  ② 工作区级 `Komo-Local-News-Services`
-  （`E:\新建文件夹\Codex-GPT\tools\local-services\watch-local-news-services.ps1`，
-  每 300 秒一轮，同时管 GameNews API 64424 / 前端 64423 / NewgameWiki 64111）。
-  两者都按端口判活并各自启动实例，是 `database is locked` 的主要来源之一。
-  建议只保留一套（二选一），涉及工作区文件，需先确认。
+- ~~**64424 被两套守护同时负责**（跨项目，需确认后再动）~~ → **风险已消除**。
+  单实例闸门让重复实例零副作用退出，两套守护并存不再产生并发写。
+  **但仍建议收敛（二选一）**，理由是排查成本而非稳定性：
+  ① 两者把日志写进不同位置（本项目 `logs/` vs 工作区
+  `runtime-logs/local-services/`），查问题时要在两处对照；
+  ② 两者都会写 `data/logs/cron-result.json`，互相覆盖，同一时刻能看到两种候选数
+  （实测「恒为 58」与「10/15/67/72/82 波动」并存）；
+  ③ 本项目 watchdog 管 64424+64425，工作区守护管 64424+64423+64111，职责重叠。
+  归属：工作区守护在 `E:\新建文件夹\Codex-GPT\tools\local-services\`，属跨项目文件，需先确认。
 - 归档体积无上限：`data/backups` 139M、`data/weekly-snapshots` 113M（合计 252M）。
 - `published-posters/assets` 无滚动保留窗口。
 - 抓取器在工作区守护的调用环境下可能撞到 `Path`/`PATH` 重复环境键
@@ -325,14 +350,25 @@ scripts/preview-daily-poster.mjs
 
 ### P0
 
-- 本地稳定性修复未提交，跨电脑仅拉 GitHub 会缺少这些改动。
+- ~~本地稳定性修复未提交，跨电脑仅拉 GitHub 会缺少这些改动。~~ → 已提交并推送
+  （远端 `main` = 本地 = `79d16e5`，本次单实例闸门在其之后另行提交）。
 - 临时 Cloudflare/trycloudflare 地址不是永久海报地址。
+- **4 个 `cloudflared` 隧道同时运行**（pid 23292 / 17708 / 20804 / 23164，端口
+  64754 / 65148 / 65254 / 65265，启动时间集中在 09-21 08:31~08:35），
+  全部指向 `http://127.0.0.1:64425`，只应保留 1 个。
 
 ### P1
 
 - `.snapshots` 约 1.29 GiB。
 - ~~采集源「0 条」不告警~~ → 已实现连击告警（见上「已于 2026-09-28 修复」）。
   残余：告警只在 `/api/crawl/monitor` 与日志里，尚未接入飞书机器人推送。
+- **定时日志时间戳是 UTC**（`server/scheduler.js` 的 `startedAt = new Date().toISOString()`
+  后 `slice(11, 19)`）。日志里 `[monitor-hourly 09:00:00]` 实际是北京时间 17:00，
+  排查时极易误读成「早上的轮次」。改为本地时分秒即 1 行。
+- `data/backups` 139M + `data/weekly-snapshots` 113M 无生命周期。
+- `published-posters/assets` 无滚动保留窗口（121 MB / 13 个日期目录，随期数线性增长）。
+- 前端 64423 跑的是 **vite dev server**（非构建产物），自 09-23 起连续运行，
+  改代码不重启不生效。
 - 测试服归一与独立版本业务要求冲突。
 - README 来源列表与正式 registry 不一致。
 - 48 小时、7 天、30 天、90 天保留口径冲突。

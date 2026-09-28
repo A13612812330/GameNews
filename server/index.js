@@ -1229,6 +1229,68 @@ function readBrief(filename) {
   }
 }
 
+// ── 单实例闸门 ───────────────────────────────────────────────────────────
+// 本机有两套守护都会拉起 server/index.js（本项目 Komo-GameNews-Watchdog 每分钟、
+// 工作区级 Komo-Local-News-Services 每 5 分钟），端口同为 64424。
+// 旧写法在「知道自己是不是重复实例」之前就执行了 seedBuiltinSources()（写数据库），
+// 于是重复实例在退出前已经和正式实例并发写同一个 SQLite，直接抛 database is locked
+// （实测累计 121 次，约占流水线 74%）。
+//
+// 判据为什么不能用端口或 app.listen 回调：Windows 的 SO_REUSEADDR 允许重复 bind，
+// 失败发生在 listen 阶段，而 Node 已经把 listening 事件发出去了 —— 实测回调先执行、
+// EADDRINUSE 后到达，因此拿不到「我是否独占端口」的可靠信号。
+// 这里改用 fs.openSync(..., "wx")（O_EXCL）的原子性：即使两个实例同时启动，
+// 也只有一个能创建成功；配合 PID 判活，崩溃残留的锁可被接管。
+// 允许测试用临时路径覆盖，避免回归测试扰动生产锁。
+const instanceLockFile =
+  process.env.GAME_NEWS_INSTANCE_LOCK || path.join(root, "data", "logs", "instance.lock");
+
+function writeInstanceLock() {
+  const fd = fs.openSync(instanceLockFile, "wx");
+  fs.writeSync(fd, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+  fs.closeSync(fd);
+}
+
+function claimInstanceLock() {
+  try {
+    writeInstanceLock();
+    return true;
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+  }
+  // 锁已存在：读 pid 判活。死进程残留（崩溃 / 被强杀）的锁允许接管。
+  // 去掉 BOM：外部工具（如 Set-Content -Encoding utf8）写入的 JSON 会带 BOM，
+  // 直接 JSON.parse 会失败并把「活锁」误判成「损坏锁」⇒ 两个实例同时启动。
+  try {
+    const raw = fs.readFileSync(instanceLockFile, "utf8").replace(/^\uFEFF/, "");
+    const lease = JSON.parse(raw);
+    process.kill(Number(lease.pid), 0);
+    return false;
+  } catch {
+    try {
+      fs.unlinkSync(instanceLockFile);
+      writeInstanceLock();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+if (!claimInstanceLock()) {
+  console.warn(
+    `[bootstrap] 已有其他 GameNews 实例在运行（${path.relative(root, instanceLockFile)}），本实例退出：不写库、不注册定时任务`,
+  );
+  process.exit(0);
+}
+
+// 只有持有实例锁的进程才在退出时释放，避免重复实例误删正式实例的锁。
+process.on("exit", () => {
+  try {
+    fs.unlinkSync(instanceLockFile);
+  } catch {}
+});
+
 seedBuiltinSources();
 
 // 启动定时流水线
@@ -1249,6 +1311,17 @@ app.use((req, res) => {
   res.status(404).json({ ok: false, message: "Not found" });
 });
 
-app.listen(port, "127.0.0.1", () => {
+const server = app.listen(port, "127.0.0.1", () => {
   console.log(`Game News Hub API: http://127.0.0.1:${port}`);
+});
+
+// 兜底：实例锁只防「两个 GameNews」，端口被其它程序占用时仍需明确退出，
+// 否则会留下一个不提供服务的「沉默实例」。
+server.on("error", (error) => {
+  if (error && error.code === "EADDRINUSE") {
+    console.warn(`[bootstrap] 端口 ${port} 已被占用，本实例退出`);
+    process.exit(0);
+  }
+  console.error(`[bootstrap] 服务启动失败：${(error && error.message) || error}`);
+  process.exit(1);
 });
