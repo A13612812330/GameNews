@@ -327,8 +327,8 @@ EDGE_BIN
 
 | 任务 | 用途 |
 |---|---|
-| `Komo-GameNews-Watchdog` | 保持前端和后端服务运行 |
-| `Komo-GameNews-GitHub-PosterSync` | 每日 09:00 同步正式日报/周报到私有 GitHub |
+| `Komo-GameNews-Watchdog` | 保持 64424 / 64425 运行；登录触发 + 每 5 分钟自愈，无执行时限 |
+| `Komo-GameNews-GitHub-PosterSync` | 每日 09:00 同步正式日报/周报到公开 GitHub |
 
 ### 调度注意事项
 
@@ -336,6 +336,12 @@ EDGE_BIN
 - 多个服务实例同时运行会导致重复抓取、重复推送或 SQLite 锁。
 - 当前工作区已开发 scheduler 租约和海报投递幂等，但尚需测试并正式提交。
 - 检查日志：`data/logs/cron-result.json`。
+- 改计划任务时：`Register-ScheduledTask`（覆盖定义）实测会被拒 `Access denied`，
+  需要管理员；改**已有**任务的触发器与设置用 `Set-ScheduledTask` 即可成功，
+  `Start-ScheduledTask` / `Stop-ScheduledTask` 普通权限也可用。
+- 排查常驻守护进程时注意：用 `CommandLine -like "*xxx*"` 过滤 PowerShell 进程
+  会**匹配到执行这条查询的自身**，必须加 `-ne $PID`，否则会误判"守护在跑"
+  甚至把自己杀掉。
 
 ---
 
@@ -486,6 +492,19 @@ https://github.com/A13612812330/GameNews
 
 ## 13. 当前已知风险
 
+### 2026-09-28 已修复
+
+- **TapTap 整源静默失效**（`server/crawler/tasks.js`）。源站从 Next.js 迁到 Nuxt 后，
+  页内接口地址改写成 `http:\u002F\u002Fwww.taptap.cn\u002Fwebapiv2\u002F...`，
+  旧提取正则只认 `\/` 一种转义 ⇒ 5 个入口全部 0 条且 `error=null`。
+  `calendar/v1/upcoming` 已废弃，「今日游戏」改走 `calendar/v1/event-list`
+  （按天返回 `list_a/b/c`，强制 `day=<unix 秒>`）。修复后候选 0 → 91，48h 入库 78 条。
+  未修：`hashtags` 入口（源站 `/forum/hot/hashtags` 已 302 到 `/forum`，功能下线）。
+- **Watchdog 停摆与自愈**（`scripts/gamenews-watchdog.ps1`）。原任务 `/SC ONLOGON`
+  只在登录时跑一次；循环体无 try/catch，单次异常即整体退出且不留日志。
+  已改为「登录触发 + 每 5 分钟自愈 + 无执行时限」，并加启动失败日志。
+  反证：杀掉 64424 后 3 秒内自动拉起。
+
 ### P0
 
 - 海报重复发送防护、周报图片路径修复、日报长图裁边改 Node 实现、scheduler 单实例锁仍有未提交修改。
@@ -494,7 +513,8 @@ https://github.com/A13612812330/GameNews
 ### P1
 
 - `.snapshots` 约 1.29 GiB，缺少自动生命周期。
-- Watchdog 最近曾返回非 0 结果，需要单独诊断。
+- 采集源「0 条」不告警：整源归零时日志只留 `error=null`，需人工比对条数才能发现。
+- `published-posters/assets` 无保留窗口，已 121 MB / 13 个日期目录，随期数线性增长。
 - 去重器处理“测试服”的规则与业务要求冲突。
 - README 仍包含已停用来源。
 - 缓存文档中同时存在 48 小时、7 天、30 天、90 天等旧口径。

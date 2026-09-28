@@ -258,6 +258,21 @@ scripts/preview-daily-poster.mjs
 
 ## 十四、已知风险优先级
 
+### 已于 2026-09-28 修复
+
+- **TapTap 整源静默失效**（`server/crawler/tasks.js`）。源站已从 Next.js 迁到 Nuxt，
+  页内接口地址改写成 `http:\u002F\u002Fwww.taptap.cn\u002Fwebapiv2\u002F...`，
+  旧提取正则只认 `\/` 一种转义 ⇒ 5 个入口全部 0 条且 `error=null`（不报错、不重试）。
+  同时 `calendar/v1/upcoming` 已废弃（恒返回空 list），「今日游戏」改走
+  `calendar/v1/event-list`（按天返回 `list_a/b/c`，强制 `day=<unix 秒>`）。
+  修复后候选 0 → 91，48h 入库 78 条。
+- **Watchdog 停摆**（`scripts/gamenews-watchdog.ps1`）。原任务用 `/SC ONLOGON`，
+  只在登录时跑一次；脚本循环体没有 try/catch，单次异常即整体退出且不留任何日志，
+  于是 64424 / 64425 长期无人守护。已改为「登录触发 + 每 5 分钟自愈 + 无执行时限」，
+  循环体加 try/catch 与启动失败日志。反证：杀掉 64424 后 3 秒内自动拉起。
+- 遗留未修：`hashtags` 入口 —— 源站 `/forum/hot/hashtags` 已 302 到 `/forum`，
+  热榜话题功能整体下线，无等效替代接口。
+
 ### P0
 
 - 本地稳定性修复未提交，跨电脑仅拉 GitHub 会缺少这些改动。
@@ -266,7 +281,8 @@ scripts/preview-daily-poster.mjs
 ### P1
 
 - `.snapshots` 约 1.29 GiB。
-- Watchdog 最近任务结果非 0，但服务目前可用。
+- 采集源「0 条」不告警：整源归零时日志只留 `error=null`，要靠人工比对条数才发现
+  （TapTap 就是因此静默失效了 7 天）。
 - 测试服归一与独立版本业务要求冲突。
 - README 来源列表与正式 registry 不一致。
 - 48 小时、7 天、30 天、90 天保留口径冲突。
