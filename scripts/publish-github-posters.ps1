@@ -5,6 +5,35 @@ $sourceRoot = Join-Path $projectRoot "output\scheduled-posters"
 $publishRoot = Join-Path $projectRoot "published-posters"
 $dailyRoot = Join-Path $publishRoot "daily"
 $weeklyRoot = Join-Path $publishRoot "weekly"
+$logRoot = Join-Path $projectRoot "data\logs\github-posters"
+New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+$statusPath = Join-Path $logRoot "latest.json"
+$transcriptPath = Join-Path $logRoot ((Get-Date -Format "yyyy-MM-dd-HHmmss") + ".log")
+$transcriptStarted = $false
+
+function Invoke-CheckedGit {
+  param([string[]]$GitArgs)
+  $result = & git @GitArgs
+  if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') failed (exit $LASTEXITCODE)" }
+  return $result
+}
+
+try {
+Start-Transcript -LiteralPath $transcriptPath | Out-Null
+$transcriptStarted = $true
+Set-Location -LiteralPath $projectRoot
+$branch = (Invoke-CheckedGit -GitArgs @("branch", "--show-current")).Trim()
+if (-not $branch) { throw "Detached HEAD: refusing to guess the publication branch." }
+# Keep unrelated staged changes out of an automated commit.
+$staged = @(Invoke-CheckedGit -GitArgs @("diff", "--cached", "--name-only"))
+if ($staged | Where-Object { $_ -notmatch '^published-posters/' }) {
+  throw "Unrelated staged files exist; refusing to commit them."
+}
+# Public archives were explicitly approved. Credentials and runtime data remain local.
+$origin = (Invoke-CheckedGit -GitArgs @("remote", "get-url", "origin")).Trim()
+if ($origin -notmatch '^(https://github\.com/|git@github\.com:)A13612812330/GameNews(?:\.git)?$') {
+  throw "Unexpected publication remote; refusing to upload."
+}
 
 if (-not (Test-Path -LiteralPath (Join-Path $projectRoot ".git"))) {
   throw "当前目录尚未初始化 Git 仓库。"
@@ -28,34 +57,40 @@ if (Test-Path -LiteralPath $archiveScript) {
   if ($LASTEXITCODE -ne 0) { throw "海报归档自包含失败（node exit $LASTEXITCODE）" }
 }
 
-function Sync-PosterFiles([string]$Pattern, [string]$Destination) {
-  $changed = 0
-  Get-ChildItem -LiteralPath $sourceRoot -File | Where-Object { $_.Name -match $Pattern } | ForEach-Object {
-    $target = Join-Path $Destination $_.Name
-    $needsCopy = -not (Test-Path -LiteralPath $target)
-    if (-not $needsCopy) {
-      $needsCopy = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
-    }
-    if ($needsCopy) {
-      Copy-Item -LiteralPath $_.FullName -Destination $target -Force
-      $changed += 1
-    }
-  }
-  return $changed
+# The archive builder already writes self-contained HTML and PNGs. Copying the
+# original HTML afterwards would restore localhost image URLs and break it again.
+if (-not (Test-Path -LiteralPath $archiveScript)) {
+  throw "Missing self-contained archive builder."
 }
-
-$dailyChanged = Sync-PosterFiles '^\d{4}\.\d{1,2}\.\d{1,2}-今日简讯海报\.(html|png)$' $dailyRoot
-$weeklyChanged = Sync-PosterFiles '^\d{4}\.\d{1,2}\.\d{1,2}-周简讯海报\.html$' $weeklyRoot
+& $nodeExe (Join-Path $projectRoot "scripts\verify-poster-publication.mjs")
+if ($LASTEXITCODE -ne 0) { throw "Public archive safety validation failed." }
 
 Set-Location $projectRoot
-git add -- published-posters
+Invoke-CheckedGit -GitArgs @("add", "--", "published-posters") | Out-Null
 git diff --cached --quiet
-if ($LASTEXITCODE -eq 0) {
-  Write-Output "无需推送：日报与周报归档没有变化。"
-  exit 0
+if ($LASTEXITCODE -eq 1) {
+  $stamp = Get-Date -Format "yyyy-MM-dd"
+  Invoke-CheckedGit -GitArgs @("diff", "--cached", "--check") | Out-Null
+  Invoke-CheckedGit -GitArgs @("commit", "-m", "chore(posters): sync $stamp")
+} elseif ($LASTEXITCODE -ne 0) {
+  throw "Cannot inspect staged archive changes."
 }
 
-$stamp = Get-Date -Format "yyyy-MM-dd"
-git commit -m "chore(posters): sync $stamp"
-git push origin main
-Write-Output "已推送：日报 $dailyChanged 个文件，周报 $weeklyChanged 个文件。"
+# Retry pending commits even when today's files have not changed.
+$localSha = (Invoke-CheckedGit -GitArgs @("rev-parse", "HEAD")).Trim()
+Invoke-CheckedGit -GitArgs @("push", "origin", "HEAD:refs/heads/$branch")
+$remote = @(Invoke-CheckedGit -GitArgs @("ls-remote", "origin", "refs/heads/$branch"))
+if (-not $remote.Count -or ($remote[0] -split '\s+')[0] -ne $localSha) {
+  throw "GitHub remote commit does not match the local archive commit."
+}
+@{ ok = $true; finishedAt = [DateTimeOffset]::UtcNow.ToString("o"); branch = $branch; commit = $localSha; log = $transcriptPath } |
+  ConvertTo-Json | Set-Content -LiteralPath $statusPath -Encoding UTF8
+Write-Output "Uploaded and verified: $branch @ $localSha"
+} catch {
+  @{ ok = $false; finishedAt = [DateTimeOffset]::UtcNow.ToString("o"); error = $_.Exception.Message; log = $transcriptPath } |
+    ConvertTo-Json | Set-Content -LiteralPath $statusPath -Encoding UTF8
+  [Console]::Error.WriteLine($_.Exception.Message)
+  exit 1
+} finally {
+  if ($transcriptStarted) { Stop-Transcript | Out-Null }
+}
