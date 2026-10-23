@@ -125,6 +125,11 @@ function resolveLocalAsset(date, encodedName) {
   const dir = path.join(assetRoot, date);
   const to = path.join(dir, name);
   if (!fs.existsSync(from)) {
+    // Retention may remove the source snapshot after a verified archive exists.
+    if (fs.existsSync(to) && fs.statSync(to).size > 0) {
+      stats.localSkipped += 1;
+      return `../assets/${date}/${encodedName}`;
+    }
     stats.localMissing += 1;
     problems.push(`missing-local  ${date}/assets/${name}`);
     return null;
