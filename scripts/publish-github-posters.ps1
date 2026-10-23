@@ -13,9 +13,26 @@ $transcriptStarted = $false
 
 function Invoke-CheckedGit {
   param([string[]]$GitArgs)
-  $result = & git @GitArgs
-  if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') failed (exit $LASTEXITCODE)" }
-  return $result
+  $attempts = 1
+  if ($GitArgs[0] -in @("push", "ls-remote")) { $attempts = 3 }
+  for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+    $result = & git @GitArgs
+    if ($LASTEXITCODE -eq 0) { return $result }
+    if ($attempt -lt $attempts) { Start-Sleep -Seconds (2 * $attempt) }
+  }
+  throw "git $($GitArgs -join ' ') failed (exit $LASTEXITCODE)"
+}
+
+function Get-RemoteCommit([string]$BranchName) {
+  $encodedBranch = [Uri]::EscapeDataString($BranchName)
+  for ($attempt = 1; $attempt -le 3; $attempt++) {
+    $result = & gh api "repos/A13612812330/GameNews/git/ref/heads/$encodedBranch" --jq '.object.sha'
+    if ($LASTEXITCODE -eq 0 -and ($result -join "").Trim() -match '^[0-9a-f]{40}$') {
+      return ($result -join "").Trim()
+    }
+    if ($attempt -lt 3) { Start-Sleep -Seconds (2 * $attempt) }
+  }
+  throw "Cannot verify the remote archive commit through GitHub API."
 }
 
 try {
@@ -79,8 +96,8 @@ if ($LASTEXITCODE -eq 1) {
 # Retry pending commits even when today's files have not changed.
 $localSha = (Invoke-CheckedGit -GitArgs @("rev-parse", "HEAD")).Trim()
 Invoke-CheckedGit -GitArgs @("push", "origin", "HEAD:refs/heads/$branch")
-$remote = @(Invoke-CheckedGit -GitArgs @("ls-remote", "origin", "refs/heads/$branch"))
-if (-not $remote.Count -or ($remote[0] -split '\s+')[0] -ne $localSha) {
+$remoteSha = Get-RemoteCommit $branch
+if ($remoteSha -ne $localSha) {
   throw "GitHub remote commit does not match the local archive commit."
 }
 @{ ok = $true; finishedAt = [DateTimeOffset]::UtcNow.ToString("o"); branch = $branch; commit = $localSha; log = $transcriptPath } |
