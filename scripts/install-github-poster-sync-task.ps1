@@ -9,7 +9,7 @@ $launcher = Join-Path $PSScriptRoot "run-github-poster-sync.vbs"
 $action = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\wscript.exe" -Argument "`"$launcher`" `"$scriptPath`"" -WorkingDirectory $projectRoot
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($existing) {
-  Set-ScheduledTask -TaskName $taskName -Action $action -Description "GameNews: daily GitHub poster archive; exit code and upload result verified." | Out-Null
+  Set-ScheduledTask -TaskName $taskName -Action $action | Out-Null
   Get-ScheduledTask -TaskName $taskName | Select-Object TaskName, State
   exit 0
 }
