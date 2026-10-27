@@ -20,7 +20,7 @@ import { finalizeCrawlRun } from "./crawlFinalize.js";
 import { syncFeishuTopicMonitor } from "./feishuTopicMonitor.js";
 import { writeWeeklyPoster } from "./weeklyPoster.js";
 import { getDashboardProjection } from "./briefProjection.js";
-import { createKindLock, parsePosterStdout, summarizeProcessFailure } from "./scheduler-support.js";
+import { createKindLock, parsePosterStdout, summarizeProcessFailure, planWeeklyCatchUp } from "./scheduler-support.js";
 import { promisify } from "node:util";
 
 const MOBILE_SOURCES = ["ref-haoyou","ref-taptap","ref-x7"];
@@ -42,6 +42,23 @@ const posterKindLock = createKindLock();
  */
 const POSTER_ATTEMPTS = 2;
 const POSTER_RETRY_DELAY_MS = 30_000;
+
+/**
+ * 周报补跑守卫（2026-10-27 新增）。
+ *
+ * 事故：2026-10-26（周一）09:00 的周报整期没发，且没有任何失败痕迹。
+ * 根因：node-cron 3.0.3 的 scheduler 只检查「当前这一秒」，
+ * `recoverMissedExecutions` 默认 false；而 `00 9 * * 1` 只有 09:00:00 匹配
+ * （09:00:01 即 false）。那一秒的 tick 被推迟 >1s（大堆 GC / 同步 I/O /
+ * Windows 定时器合并），整次执行永久丢失，回调从未进入 ⇒ 连 cron-result 都没有。
+ * 日报有 7 次机会/周，周报只有 1 次，所以周报必须有一条不依赖 cron 精度的兜底通道。
+ */
+const WEEKLY_GRACE_HOURS = Number(process.env.GAMENEWS_WEEKLY_GRACE_HOURS) || 36;
+const WEEKLY_CATCHUP_INTERVAL_MS = 10 * 60 * 1000;
+// 失败后不要每 10 分钟就重跑（生成一次周报要几分钟），至少隔 30 分钟再试。
+const WEEKLY_MIN_RETRY_INTERVAL_MS = 30 * 60 * 1000;
+let weeklyRunInFlight = false;
+let weeklyAttemptedAt = 0;
 const schedulerLeasePath = path.join(root, "data", "logs", "scheduler.lease");
 let schedulerLeaseOwned = false;
 
@@ -509,20 +526,23 @@ async function runPipeline(label = "daily", maxSections = 12, { syncMonitor = tr
   }
 }
 
-/** 周报生成（不爬取，只用已审核文章） */
-async function runWeeklyBrief() {
+/** 周报生成（不爬取，只用已审核文章）
+ *  now：可指定「本期应有的时间点」。补跑时传周一 09:00，
+ *  保证统计区间（滚动 14 天）不会因为补跑发生在周二而整体后移。 */
+async function runWeeklyBrief(now) {
   if (isCrawlerPaused()) {
     console.log(`[weekly] ${crawlerPauseMessage()}`);
     return null;
   }
   const startedAt = new Date().toISOString();
   const log = (...args) => console.log(`[weekly ${startedAt.slice(11, 19)}]`, ...args);
-  log("周报生成");
+  log("周报生成", now ? `（补跑本期，基准时间 ${new Date(now).toISOString()}）` : "");
 
   try {
     const poster = await writeWeeklyPoster({
       root,
       assetBase: "http://127.0.0.1:64424",
+      ...(now ? { now: new Date(now) } : {}),
     });
     log(`  ✓ 周报长海报 ${poster.fileName}（${poster.snapshotDays} 天快照 / ${poster.articleCount} 条素材）`);
     const output = {
@@ -554,11 +574,58 @@ async function runMorningBriefAndPoster() {
   return runPosterDelivery("daily", "", articleIds);
 }
 
-async function runWeeklyBriefAndPoster() {
-  const weekly = await runWeeklyBrief();
+async function runWeeklyBriefAndPoster(slot) {
+  const weekly = await runWeeklyBrief(slot);
   const sourceFile = weekly?.poster?.fileName || "";
   if (!sourceFile) return null;
   return runPosterDelivery("weekly", sourceFile);
+}
+
+/** 投递台账里所有 weekly 成功投递的时间戳（ms）。读不到就当作没发过（宁可多发一次，也不静默漏发）。 */
+async function readWeeklyDeliveryTimes() {
+  try {
+    const state = JSON.parse(await fs.readFile(path.join(root, "data", "logs", "poster-delivery.json"), "utf8"));
+    return Object.entries(state)
+      .filter(([key, value]) => key.startsWith("weekly:") && value?.status === "sent" && value.sentAt)
+      .map(([, value]) => Date.parse(value.sentAt))
+      .filter((value) => Number.isFinite(value));
+  } catch {
+    return [];
+  }
+}
+
+/** 周报的唯一入口：cron 与补跑守卫共用，避免两者同时生成同一期。 */
+async function runWeeklyOnce(trigger, slot) {
+  if (weeklyRunInFlight) {
+    console.log(`[weekly] 上一轮周报仍在运行（${trigger} 触发，本次跳过）`);
+    return null;
+  }
+  weeklyRunInFlight = true;
+  weeklyAttemptedAt = Date.now();
+  try {
+    console.log(`[weekly] 触发来源：${trigger}`);
+    return await runWeeklyBriefAndPoster(slot);
+  } finally {
+    weeklyRunInFlight = false;
+  }
+}
+
+/**
+ * 补跑守卫：按「应发时间点 + 投递台账」判断本期周报是否真的发出去了。
+ * 这一步不依赖 cron 是否命中，所以能兜住 node-cron 静默丢触发、进程在 09:00
+ * 时正好没起来、以及机器休眠等所有「当期没跑」的情形。
+ */
+async function checkWeeklyCatchUp() {
+  if (isCrawlerPaused() || weeklyRunInFlight) return null;
+  if (Date.now() - weeklyAttemptedAt < WEEKLY_MIN_RETRY_INTERVAL_MS) return null;
+  const plan = planWeeklyCatchUp({
+    now: Date.now(),
+    sentWeeklyAt: await readWeeklyDeliveryTimes(),
+    graceHours: WEEKLY_GRACE_HOURS,
+  });
+  if (!plan.needed) return null;
+  console.warn(`[weekly] 本期周报缺失（应发 ${plan.slotIso}，补跑截止 ${plan.deadlineIso}），开始补跑`);
+  return runWeeklyOnce("补跑守卫", plan.slot);
 }
 
 async function writeBriefArchive(label, serialized) {
@@ -595,11 +662,21 @@ export function startScheduler() {
   // 因此再错开到 09:00（余量 9 分钟）。改 POSTER_ATTEMPTS / 外层 timeout / 本 cron
   // 任一者都必须同步核对 scripts/verify-poster-pipeline-hardening.mjs 第 6 组的不变式。
   // 注意：kind 级互斥已独立成立，这里只是消除资源竞争，不是互斥的替代品。
-  cron.schedule("00 9 * * 1", () => runWeeklyBriefAndPoster().catch(e => console.error("[weekly-poster]", e)));
+  //
+  // recoverMissedExecutions 只给周报开，不给整点监控：开启后 tick 迟到的这段时间里
+  // 会被逐个回放，短延迟只是补救，但如果整机休眠几小时，回放一堆监控轮次就是灾难。
+  // 周报一周只有一次，回放最多补 1 次，代价可接受。
+  cron.schedule("00 9 * * 1", () => runWeeklyOnce("cron").catch(e => console.error("[weekly-poster]", e)), { recoverMissedExecutions: true });
   // 每日凌晨：最近 7 天和未来保留完整数据；更早内容轻量 JSON 留档，图片不缓存。
   cron.schedule("15 3 * * *", () => runRetentionMaintenance().catch(e => console.error("[retention-maintenance]", e)));
 
-  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控 + 08:30早报/日海报 + 17:50晚报 + 周一09:00周报/飞书投递 + 每日03:15轻量留档清理");
+  // 周报补跑守卫：启动 60 秒后先自检一次（覆盖「进程在 09:00 没起来」），
+  // 之后每 10 分钟对一次台账。已投递则立即返回，不做任何生成动作。
+  const runWeeklyCatchUp = () => checkWeeklyCatchUp().catch(e => console.error("[weekly-catchup]", e));
+  setTimeout(runWeeklyCatchUp, 60_000);
+  setInterval(runWeeklyCatchUp, WEEKLY_CATCHUP_INTERVAL_MS);
+
+  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控 + 08:30早报/日海报 + 17:50晚报 + 周一09:00周报/飞书投递（含 10 分钟补跑守卫）+ 每日03:15轻量留档清理");
 }
 
 export { runPipeline, runMonitorPipeline, runWeeklyBrief };

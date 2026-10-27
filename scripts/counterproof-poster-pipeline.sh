@@ -10,7 +10,7 @@
 # 这里改用 break_src()，模式必须真的命中，否则明确报「用例过期」。
 #
 # 用法（Git Bash）：bash scripts/counterproof-poster-pipeline.sh
-# 期望输出：17 个用例全部「[OK 变红]」，最后「已还原，全绿」，且逐文件 diff 无差异。
+# 期望输出：21 个用例全部「[OK 变红]」，最后「已还原，全绿」，且逐文件 diff 无差异。
 set -u
 export PATH="/usr/bin:/bin:/c/Windows/System32:$PATH"
 cd "$(dirname "$0")/.." || exit 1
@@ -121,6 +121,19 @@ run_case "⑯ 截图前不删旧 PNG（加高重截会把残留当成成功）"
 
 break_src "$P" 'const CANVAS_GROWTH = 2;' 'const CANVAS_GROWTH = 1;'
 run_case "⑰ 增长系数改成 1（加高变成空操作）"
+
+# ── 组 8：周报触发与补跑（2026-10-26 整期丢失的回归闸门） ──────────────────
+break_src "$S" ', { recoverMissedExecutions: true });' ');'
+run_case "⑱ 去掉 recoverMissedExecutions（tick 迟到 >1s 就整周丢失）"
+
+break_src "$U" 'Number.isFinite(value) && value >= slot' 'Number.isFinite(value) && value >= now'
+run_case "⑲ 补跑判据改成「只认补跑时刻之后的投递」"
+
+break_src "$U" 'if (now - slot > graceMs) return' 'if (false) return'
+run_case "⑳ 去掉补跑窗口上限（一周前的周报也会被补发）"
+
+break_src "$S" 'runWeeklyOnce("补跑守卫", plan.slot)' 'runWeeklyOnce("补跑守卫")'
+run_case "㉑ 补跑不带本期时点（统计区间按补跑当天滚动）"
 
 echo
 echo "=== 还原后复检 ==="

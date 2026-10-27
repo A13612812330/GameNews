@@ -8,7 +8,56 @@
  * 1. createKindLock()          —— 按 kind 分离的「运行中」标志
  * 2. summarizeProcessFailure() —— 把子进程失败的真实原因（stdout/stderr）留下来
  * 3. parsePosterStdout()       —— 从可能被诊断行污染的 stdout 里取出结果 JSON
+ * 4. planWeeklyCatchUp()       —— 周报「本期该发而未发」的判定（补跑守卫的核心）
  */
+
+/**
+ * 本期周报应有的时间点 = 最近一个「周一 hour:00」（本地时区）。
+ * 周一 hour:00 之前算「上一周」，因为本周这一期还没到点。
+ *
+ * 为什么要算这个：2026-10-26 09:00 的周报因为 node-cron 只认「当前这一秒」
+ * 而整期丢失（详见 planWeeklyCatchUp 注释）。补跑时必须把时间点带回去，
+ * 否则周报的统计区间会按「补跑当天」重新滚动，把上一期的内容挤掉。
+ */
+export function currentWeeklySlot(nowMs, { weekday = 1, hour = 9 } = {}) {
+  const now = new Date(nowMs);
+  const dayDiff = (now.getDay() - weekday + 7) % 7;
+  const slot = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayDiff, hour, 0, 0, 0);
+  if (slot.getTime() > nowMs) slot.setDate(slot.getDate() - 7);
+  return slot.getTime();
+}
+
+/**
+ * 判断本期周报是否需要补跑。
+ *
+ * 背景（2026-10-26 实测）：node-cron 3.0.3 的 scheduler 只检查 `i === 0`
+ * （也就是「当前这一秒」），`recoverMissedExecutions` 默认 false。
+ * `00 9 * * 1` 经 TimeMatcher 实测只有 09:00:00 匹配，09:00:01 即 false。
+ * 于是那一秒的 tick 只要被推迟 >1 秒（大堆 GC、同步 I/O、定时器合并），
+ * 整周静默丢失，且回调从未执行 ⇒ 连失败日志都没有。
+ *
+ * 日报有 7 次机会/周，丢一次下次就补上；周报只有 1 次机会，丢了就是一周空白，
+ * 所以这里给周报单独一条「按台账补跑」的兜底通道。
+ *
+ * @param {number} now              现在（ms）
+ * @param {number[]} sentWeeklyAt   台账里所有 weekly 成功投递时间（ms）
+ * @param {number} graceHours       补跑窗口：过了应发时间多久就不再补（默认 36h）
+ */
+export function planWeeklyCatchUp({ now = Date.now(), sentWeeklyAt = [], graceHours = 36, weekday = 1, hour = 9 } = {}) {
+  const slot = currentWeeklySlot(now, { weekday, hour });
+  const graceMs = graceHours * 3600_000;
+  const base = {
+    slot,
+    slotIso: new Date(slot).toISOString(),
+    deadlineIso: new Date(slot + graceMs).toISOString(),
+  };
+  if (now - slot > graceMs) return { needed: false, reason: "已超出补跑窗口", ...base };
+  // 判据是「本期时间点之后有没有成功投递过」，而不是「有没有 weekly:<今天> 这个键」：
+  // 补跑发生在周二时，键是 weekly:<周二>，只查周一那个键会误判成没发过。
+  const delivered = (Array.isArray(sentWeeklyAt) ? sentWeeklyAt : []).filter((value) => Number.isFinite(value) && value >= slot);
+  if (delivered.length) return { needed: false, reason: "本期已投递", ...base };
+  return { needed: true, reason: "本期未投递", ...base };
+}
 
 /**
  * 按 kind 分离的运行锁。

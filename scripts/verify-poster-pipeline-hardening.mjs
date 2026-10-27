@@ -24,10 +24,11 @@
  *                   日报最坏窗口不越界周报                 ← 改回 08:35/08:50、缩小 TTL 就红
  *   7 渲染防护   —— 不可达图片只占位不改原件、画布触底才加高、
  *                   截图带独立 profile                    ← 见 poster-render-guard.mjs
+ *   8 周报触发   —— 本期时点计算、补跑判定、cron 补跑选项   ← 2026-10-26 整期丢失的回归闸门
  */
 import fs from "node:fs";
 import path from "node:path";
-import { createKindLock, parsePosterStdout, summarizeProcessFailure } from "../server/scheduler-support.js";
+import { createKindLock, currentWeeklySlot, parsePosterStdout, planWeeklyCatchUp, summarizeProcessFailure } from "../server/scheduler-support.js";
 import {
   applyImagePlaceholders,
   buildScreenshotArgs,
@@ -242,8 +243,10 @@ function readProduct(src, pattern, label) {
 // ── 6. 调度错开、重试窗口与锁 TTL ─────────────────────────────────────────
 {
   lines.push("6. 周报错开「含重试的日报最坏窗口」/ 投递锁 TTL 大于外层超时");
-  const weeklyCron = /cron\.schedule\("(\d{1,2}) (\d{1,2}) \* \* 1"[\s\S]{0,600}?runWeeklyBriefAndPoster/u.exec(schedulerSrc);
-  assert("周报 cron 读到了", Boolean(weeklyCron), "未匹配到 cron.schedule(... * * 1 ...) → runWeeklyBriefAndPoster");
+  // 周报入口在 2026-10-27 改成 runWeeklyOnce("cron")（cron 与补跑共用运行锁），
+  // 断言只取同一行，避免跨到后面的注释。
+  const weeklyCron = /cron\.schedule\("(\d{1,2}) (\d{1,2}) \* \* 1",[^\n]*runWeeklyOnce\("cron"\)/u.exec(schedulerSrc);
+  assert("周报 cron 读到了", Boolean(weeklyCron), "未匹配到 cron.schedule(... * * 1 ...) → runWeeklyOnce(\"cron\")");
   const weeklyMinutes = weeklyCron ? Number(weeklyCron[2]) * 60 + Number(weeklyCron[1]) : NaN;
   assert(
     "周报已错开到 09:00（日报加入重试后，原 08:50 不再安全）",
@@ -334,6 +337,75 @@ function readProduct(src, pattern, label) {
   assert("旧的写死 12000 画布已移除", !/const height = "12000"/u.test(postersSrc));
   assert("图片探测结论走 stderr（不污染 stdout 契约）", /console\.warn\(summary\.line\)/u.test(postersSrc));
   assert("截图前会先删旧 PNG（否则加高重截会把残留当成成功）", /await fs\.rm\(previewPath, \{ force: true \}\)/u.test(postersSrc));
+  lines.push("");
+}
+
+// ── 8. 周报触发与补跑（2026-10-26 整期丢失的回归闸门） ───────────────────
+{
+  lines.push("8. 周报「本期时点」与补跑判定");
+  // 用本地时间分量构造，避免依赖运行机器的时区设置
+  const monday = new Date(2026, 9, 26, 9, 0, 0, 0);
+  assert("测试基准 2026-10-26 确实是周一", monday.getDay() === 1, `getDay=${monday.getDay()}`);
+
+  assert("周一 09:00 整 → 本期时点就是当天 09:00", currentWeeklySlot(monday.getTime()) === monday.getTime());
+  assert(
+    "周一 09:00 之前 → 仍算上周（本周这一期还没到点）",
+    currentWeeklySlot(new Date(2026, 9, 26, 8, 0, 0).getTime()) === new Date(2026, 9, 19, 9, 0, 0).getTime(),
+  );
+  const tuesday = new Date(2026, 9, 27, 10, 31, 0, 0);
+  assert("周二 → 本期时点是本周一 09:00", currentWeeklySlot(tuesday.getTime()) === monday.getTime());
+  assert(
+    "周日 → 本期时点是上周一 09:00",
+    currentWeeklySlot(new Date(2026, 9, 25, 23, 0, 0).getTime()) === new Date(2026, 9, 19, 9, 0, 0).getTime(),
+  );
+
+  const slot = currentWeeklySlot(tuesday.getTime());
+  assert("未投递 ⇒ 需要补跑", planWeeklyCatchUp({ now: tuesday.getTime(), sentWeeklyAt: [] }).needed === true);
+  assert(
+    "本期（周一）已投递 ⇒ 不补",
+    planWeeklyCatchUp({ now: tuesday.getTime(), sentWeeklyAt: [slot + 60_000] }).needed === false,
+  );
+  assert(
+    "补跑发生在周二、台账键是周二 ⇒ 仍算本期已投递（只查周一的键会误判）",
+    planWeeklyCatchUp({ now: tuesday.getTime(), sentWeeklyAt: [tuesday.getTime() - 600_000] }).needed === false,
+  );
+  assert(
+    "只有上一期的记录 ⇒ 仍需补跑（不能拿上周的顶本周）",
+    planWeeklyCatchUp({ now: tuesday.getTime(), sentWeeklyAt: [slot - 7 * 86400_000] }).needed === true,
+  );
+  assert(
+    "超出补跑窗口（37h）⇒ 不再补，避免发出过期很久的周报",
+    planWeeklyCatchUp({ now: slot + 37 * 3600_000, sentWeeklyAt: [] }).needed === false,
+  );
+  assert(
+    "窗口内（35h）仍补",
+    planWeeklyCatchUp({ now: slot + 35 * 3600_000, sentWeeklyAt: [] }).needed === true,
+  );
+  assert(
+    "台账无有效时间戳 ⇒ 当作未投递（宁可多发一次也不静默漏发）",
+    planWeeklyCatchUp({ now: tuesday.getTime(), sentWeeklyAt: [Number.NaN, null, undefined] }).needed === true,
+  );
+
+  // 源码侧：只靠 cron 精度不够，必须同时具备「cron 补跑选项」与「台账守卫」
+  assert(
+    "周报 cron 开启 recoverMissedExecutions（否则 tick 迟到 >1s 就永久丢失）",
+    /cron\.schedule\("00 9 \* \* 1",[\s\S]{0,200}?\{ recoverMissedExecutions: true \}/u.test(schedulerSrc),
+  );
+  const hourlyLine = schedulerSrc.split("\n").find((line) => line.includes('cron.schedule("0 8-23')) || "";
+  assert(
+    "整点监控 **不** 开 recoverMissedExecutions（休眠后回放一堆轮次是灾难）",
+    hourlyLine !== "" && !hourlyLine.includes("recoverMissedExecutions"),
+  );
+  assert("存在补跑守卫的周期检查", /setInterval\(runWeeklyCatchUp, WEEKLY_CATCHUP_INTERVAL_MS\)/u.test(schedulerSrc));
+  assert("启动后先自检一次（覆盖「进程在 09:00 没起来」）", /setTimeout\(runWeeklyCatchUp, 60_000\)/u.test(schedulerSrc));
+  assert(
+    "补跑时带上本期时点（否则统计区间按补跑当天滚动，挤掉上一期）",
+    /runWeeklyOnce\("补跑守卫", plan\.slot\)/u.test(schedulerSrc) && /runWeeklyBrief\(slot\)/u.test(schedulerSrc),
+  );
+  assert(
+    "cron 与补跑共用同一把运行锁，避免同时生成同一期",
+    /weeklyRunInFlight/u.test(schedulerSrc) && /runWeeklyOnce\("cron"\)/u.test(schedulerSrc),
+  );
   lines.push("");
 }
 
