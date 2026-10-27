@@ -15,7 +15,13 @@ async function fetchTapTapBrowserHtml(url) {
     "-H", "Accept: text/html,application/xhtml+xml",
     "-H", "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8",
     url,
-  ], { maxBuffer: 8 * 1024 * 1024, windowsHide: true });
+  ], {
+    maxBuffer: 8 * 1024 * 1024,
+    windowsHide: true,
+    // 只靠 curl 的 --max-time 不够：curl 进程本身若卡在 TLS/DNS 或被杀不掉，
+    // execFile 没有 timeout 就是一个永不返回的 await（2026-10-27 监控卡死排查时补齐）。
+    timeout: 25_000,
+  });
   return String(stdout || "");
 }
 

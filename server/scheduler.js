@@ -9,9 +9,11 @@ import { generateRichDraft, generateBriefHtml } from "./content/generator.js";
 import { listTodayArticles, listArticles, saveBrief, db } from "./database.js";
 import { isCrawlerPaused, crawlerPauseMessage } from "./crawler/pause.js";
 import {
+  abandonStaleMonitor,
   beginMonitor,
   finishMonitor,
   isMonitorBusy,
+  monitorRunningFor,
   reportSourceProgress,
   standingAlerts,
   updateMonitor,
@@ -20,7 +22,7 @@ import { finalizeCrawlRun } from "./crawlFinalize.js";
 import { syncFeishuTopicMonitor } from "./feishuTopicMonitor.js";
 import { writeWeeklyPoster } from "./weeklyPoster.js";
 import { getDashboardProjection } from "./briefProjection.js";
-import { createKindLock, parsePosterStdout, summarizeProcessFailure, planWeeklyCatchUp } from "./scheduler-support.js";
+import { createKindLock, parsePosterStdout, summarizeProcessFailure, planWeeklyCatchUp, withDeadline } from "./scheduler-support.js";
 import { promisify } from "node:util";
 
 const MOBILE_SOURCES = ["ref-haoyou","ref-taptap","ref-x7"];
@@ -28,6 +30,43 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const execFileAsync = promisify(execFile);
 let monitorRunning = false;
 let pipelineRunning = false;
+
+/**
+ * 监控卡死的两道防线（2026-10-27 新增，针对 2026-10-23 14:00 起整整 4 天的停摆）。
+ *
+ * 事故形态：那轮监控打完 `Step 1/3` 就再没有输出，`crawlCandidates` 里某个 await
+ * 永不返回 ⇒ `monitorRunning`（内存布尔）与 `monitor.state.active` 一直是 true
+ * ⇒ 之后每小时都被「上一轮监控仍在运行，本轮跳过」挡掉，且因为回调从未进入 catch，
+ * `cron-result` 里连一条失败记录都没有，完全静默。
+ *
+ * 实测（2026-10-27 11:00 那轮，正常完成）：总耗时 6 分 12 秒，其中
+ * TapTap newDownloads 单独占 185 秒（它恒为 0 条，每次都要走 firecrawl 兜底）、
+ * 飞书同步 81 秒。也就是说「慢」和「死」在页面上几乎无法区分，必须靠硬截止兜底。
+ *
+ * 两道防线缺一不可：
+ *   ① 抓取步骤的硬截止 —— 让调用方能脱身，走到 catch 并写进 cron-result；
+ *   ② 看门狗 —— 截止也失效时（原 promise 仍在后台挂着），强制释放标志并收尾。
+ */
+const MONITOR_CRAWL_DEADLINE_MS = Number(process.env.GAMENEWS_MONITOR_CRAWL_DEADLINE_MS) || 8 * 60 * 1000;
+const MONITOR_RUN_WATCHDOG_MS = Number(process.env.GAMENEWS_MONITOR_WATCHDOG_MS) || 15 * 60 * 1000;
+const MONITOR_WATCHDOG_INTERVAL_MS = 60 * 1000;
+let monitorStartedAtMs = 0;
+
+/**
+ * 看门狗：本轮超过 MONITOR_RUN_WATCHDOG_MS 还没结束时，判定卡死并释放。
+ * 返回是否真的释放了（供日志/断言使用）。
+ */
+function releaseStaleMonitorRun(now = Date.now()) {
+  if (!monitorRunning) return false;
+  const elapsed = monitorStartedAtMs ? now - monitorStartedAtMs : monitorRunningFor(now);
+  if (!elapsed || elapsed < MONITOR_RUN_WATCHDOG_MS) return false;
+  const minutes = Math.round(elapsed / 60_000);
+  console.warn(`[monitor] 上一轮已运行 ${minutes} 分钟仍未结束，判定卡死：释放运行标志并强制收尾`);
+  monitorRunning = false;
+  monitorStartedAtMs = 0;
+  if (isMonitorBusy()) abandonStaleMonitor(`本轮超过 ${minutes} 分钟未结束`);
+  return true;
+}
 // 海报投递的运行锁按 kind 分离：日报卡住不应把周报一起拖死（旧实现共用一个布尔标志）。
 const posterKindLock = createKindLock();
 /**
@@ -244,6 +283,8 @@ function logStandingAlerts(log) {
  * 不刷新 RAW，不生成今日简讯，不生成海报。
  */
 async function runMonitorPipeline(label = "monitor-hourly") {
+  // 先进看门狗：上一轮如果已经卡超过阈值，先把它判死释放，否则这里会永远走不到下面。
+  releaseStaleMonitorRun();
   if (monitorRunning) {
     console.log(`[${label}] 上一轮监控仍在运行，本轮跳过`);
     return null;
@@ -253,6 +294,7 @@ async function runMonitorPipeline(label = "monitor-hourly") {
     return null;
   }
   monitorRunning = true;
+  monitorStartedAtMs = Date.now();
   const startedAt = new Date().toISOString();
   const log = (...args) => console.log(`[${label} ${startedAt.slice(11, 19)}]`, ...args);
   // 定时跑也要进监控历史，否则页面只记录手动抓取，定时静默失效永远看不见。
@@ -262,9 +304,15 @@ async function runMonitorPipeline(label = "monitor-hourly") {
   try {
     log("监控流水线启动");
     log("Step 1/3 抓取 TapTap/好游快爆候选...");
-    const crawlResults = await crawlCandidates(
-      MOBILE_SOURCES,
-      ownMonitor ? { onProgress: (progress) => reportSourceProgress(progress) } : {},
+    // 硬截止：内层 fetchHtml 的 AbortSignal 对 DNS 卡住不可靠（见 withDeadline 注释），
+    // 没有这一层的话 JSON 永远到不了下面的 catch，也就永远不会写 cron-result。
+    const crawlResults = await withDeadline(
+      crawlCandidates(
+        MOBILE_SOURCES,
+        ownMonitor ? { onProgress: (progress) => reportSourceProgress(progress) } : {},
+      ),
+      MONITOR_CRAWL_DEADLINE_MS,
+      "抓取候选",
     );
     const candidateIds = crawlResults
       .flatMap((result) => (result.candidates || []).map((candidate) => candidate.id))
@@ -314,6 +362,7 @@ async function runMonitorPipeline(label = "monitor-hourly") {
     return null;
   } finally {
     monitorRunning = false;
+    monitorStartedAtMs = 0;
   }
 }
 
@@ -676,7 +725,12 @@ export function startScheduler() {
   setTimeout(runWeeklyCatchUp, 60_000);
   setInterval(runWeeklyCatchUp, WEEKLY_CATCHUP_INTERVAL_MS);
 
-  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控 + 08:30早报/日海报 + 17:50晚报 + 周一09:00周报/飞书投递（含 10 分钟补跑守卫）+ 每日03:15轻量留档清理");
+  // 监控看门狗：每分钟检查一次上一轮是否已经卡死。
+  // 光有 Step 1 的硬截止还不够 —— 截止只会让「这一轮」走到 catch，
+  // 如果某次连 catch 都没进（例如进程内其它路径把标志又置回），看门狗是最后一道。
+  setInterval(() => releaseStaleMonitorRun(), MONITOR_WATCHDOG_INTERVAL_MS);
+
+  console.log("[scheduler] 已启动 — 08:00-23:00每小时监控（抓取 8min 硬截止 + 15min 看门狗） + 08:30早报/日海报 + 17:50晚报 + 周一09:00周报/飞书投递（含 10 分钟补跑守卫）+ 每日03:15轻量留档清理");
 }
 
 export { runPipeline, runMonitorPipeline, runWeeklyBrief };

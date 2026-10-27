@@ -185,7 +185,7 @@ EDGE_BIN
 
 | 时间 | 任务 |
 |---|---|
-| 每日 08:00–23:00 整点 | 手游监控、飞书增量同步、新增提醒 |
+| 每日 08:00–23:00 整点 | 手游监控、飞书增量同步、新增提醒（**抓取 8 分钟硬截止 + 15 分钟看门狗**，防卡死后永久停摆） |
 | 每日 08:30 | 早报、日报海报、海报机器人 |
 | 每日 17:50 | 晚报 |
 | 周一 09:00 | 周报、海报机器人（**+ 每 10 分钟补跑守卫**：本期未投递则自动补发，窗口 36h） |
@@ -262,6 +262,39 @@ scripts/preview-daily-poster.mjs
 ## 十四、已知风险优先级
 
 ### 已于 2026-10-27 修复
+
+**监控流水线卡死 4 天（2026-10-23 14:00 起，重启后恢复）**
+
+- **现象**：`/api/crawl/monitor` 一直是 `active:true / stage:"list" / currentSource:"好游快爆"`，
+  每小时只打一行 `[monitor-hourly] 上一轮监控仍在运行，本轮跳过`；
+  `cron-result.json` 的 `monitor-hourly` 记录停在 **10-23T05:02Z**。
+- **卡在哪一步**：`logs/server-watchdog.log` 里 06:00:06 那轮打完 `Step 1/3` 后再无输出
+  （连「✓ 候选 N 条」都没有）⇒ 卡在 `crawlCandidates` 的**第一个来源**
+  （`registry.js` 的 PLATFORMS 顺序里好游快爆排第一，与 `currentSource` 吻合）。
+  2026-10-27 重启后 11:00 那轮复现过同样的慢点，但最终跑完，可作对照。
+- **为什么「卡一次就是 4 天」**：`monitorRunning`（内存布尔）与 `monitor.state.active`
+  **没有任何超时或看门狗**，那个 await 不返回 ⇒ 标志永久为 true；
+  而回调从未进入 `catch` ⇒ `cron-result` 一条记录都没有，页面也看不到任何错误，完全静默。
+- **为什么内层 15s 超时没救**：`fetchHtml` 确实传了 `AbortSignal.timeout(15000)`，
+  但 AbortSignal 只能中断「请求」，对 `getaddrinfo`（DNS 解析，跑在 libuv 线程池）
+  不保证可中断；网络切换/DNS 卡住时 fetch 可以长时间不返回。
+  **所以必须在外层加硬截止，不能依赖内层超时。**
+- **实测基线（2026-10-27 11:00 正常轮）**：总耗时 **6 分 12 秒**，
+  其中 TapTap `newDownloads` 单独占 **185 秒**（它恒为 0 条，每轮都走 firecrawl 兜底）、
+  飞书同步 **81 秒** —— 「慢」和「死」在页面上几乎无法区分，这是必须有硬截止的直接理由。
+- **影响面**：整点监控停摆 4 天；早报/晚报走 `pipelineRunning`（另一个标志）仍在跑，
+  所以入库量从正常约 95 条/天降到 10-24 **53**、10-25 **37**、10-26 **51**。
+- **修法（四道闸门，缺一不可）**：
+  1. **抓取硬截止**：`withDeadline(crawlCandidates(...), 8min)` —— 超时主动判失败并写
+     `cron-result`（`error.code = DEADLINE_EXCEEDED`），不再「无声无息」；
+  2. **看门狗**：`releaseStaleMonitorRun()` 在入口先调用 + 每分钟检查，超过 15 分钟未结束
+     则释放 `monitorRunning` 并 `abandonStaleMonitor()` 把状态收成 `failed`；
+  3. **firecrawl 上限**：原来 `firecrawl.scrape()` **无超时**且把 promise **永久缓存**，
+     现加 60s 硬超时 + 缓存 TTL 10 分钟 + 上限 50 条；
+  4. **curl 子进程**：`execFileAsync("curl.exe", ...)` 补 `timeout: 25_000`
+     （`--max-time` 只管传输，进程杀不掉时 execFile 没有 timeout 就是永久等待）。
+- **验证**：`npm run check:monitor`（19 条断言）、`npm run counterproof:monitor`
+  （4 项打坏全部变红，还原后逐文件 diff 无差异）。
 
 **周报整期静默丢失（2026-10-26 周一 09:00 那期没发，且没有任何失败痕迹）**
 

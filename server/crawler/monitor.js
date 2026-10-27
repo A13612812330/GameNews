@@ -91,6 +91,27 @@ export function isMonitorBusy() {
   return state.active;
 }
 
+/** 本轮已经跑了多久（ms）；空闲时返回 0。 */
+export function monitorRunningFor(now = Date.now()) {
+  if (!state.active || !state.startedAt) return 0;
+  const started = Date.parse(state.startedAt);
+  return Number.isFinite(started) ? Math.max(0, now - started) : 0;
+}
+
+/**
+ * 强制收尾一轮「卡死」的监控。
+ *
+ * 2026-10-23 14:00 那轮在第一步抓取里 await 永不返回，`active` 一直是 true，
+ * 之后每小时都被 `isMonitorBusy()` 挡掉（只打一行「上一轮监控仍在运行，本轮跳过」），
+ * 整整 4 天没有整点监控，而且因为回调从未进入 catch，`cron-result` 里一条记录都没有。
+ * 看门狗负责把这种「不返回也不报错」的状态强行收成 failed，让页面和历史都能看见。
+ */
+export function abandonStaleMonitor(reason) {
+  if (!state.active) return false;
+  finishMonitor({ stage: "failed", error: reason }, `监控超时未结束，已强制收尾：${reason}`);
+  return true;
+}
+
 const state = {
   active: false,
   operation: null,

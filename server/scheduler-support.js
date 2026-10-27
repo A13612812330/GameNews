@@ -9,7 +9,34 @@
  * 2. summarizeProcessFailure() —— 把子进程失败的真实原因（stdout/stderr）留下来
  * 3. parsePosterStdout()       —— 从可能被诊断行污染的 stdout 里取出结果 JSON
  * 4. planWeeklyCatchUp()       —— 周报「本期该发而未发」的判定（补跑守卫的核心）
+ * 5. withDeadline()            —— 给「内层自己带超时也不可靠」的 await 加硬截止
  */
+
+/**
+ * 给一个 promise 加硬截止（超时即 reject）。
+ *
+ * 为什么内层超时不够：`fetchHtml` 明明传了 `AbortSignal.timeout(15000)`，
+ * 2026-10-23 14:00 那轮监控仍然卡了 4 天。原因是 AbortSignal 只能中断「请求」，
+ * 对 getaddrinfo（DNS 解析，跑在 libuv 线程池里）这类调用不保证可中断；
+ * 网络切换 / DNS 卡住时 fetch 可以长时间不返回，而调用方只看到一个永不 settle 的 await。
+ *
+ * 注意：截止触发后**原 promise 仍在后台继续**（JS 没有取消语义），
+ * 所以这里的作用是「让调用方能脱身」，不是「终止对方」。
+ * 因此还必须配合看门狗释放运行标志，否则标志永远为 true。
+ */
+export function withDeadline(promise, ms, label = "操作") {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const error = new Error(`${label}：超过 ${Math.round(ms / 1000)}s 未返回`);
+      error.code = "DEADLINE_EXCEEDED";
+      reject(error);
+    }, ms);
+    Promise.resolve(promise).then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
 
 /**
  * 本期周报应有的时间点 = 最近一个「周一 hour:00」（本地时区）。

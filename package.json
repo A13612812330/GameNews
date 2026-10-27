@@ -12,7 +12,9 @@
     "preview": "vite preview --port 64423",
     "check:crawler": "node scripts/crawler-regression.mjs",
     "check:poster": "node scripts/verify-poster-pipeline-hardening.mjs",
-    "counterproof:poster": "bash scripts/counterproof-poster-pipeline.sh"
+    "counterproof:poster": "bash scripts/counterproof-poster-pipeline.sh",
+    "check:monitor": "node scripts/verify-monitor-watchdog.mjs",
+    "counterproof:monitor": "bash scripts/counterproof-monitor-watchdog.sh"
   },
   "dependencies": {
     "cheerio": "^1.1.2",
