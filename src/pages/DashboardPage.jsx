@@ -165,14 +165,14 @@ function buildLiveCards(supplements = {}) {
 // 不能再使用额外的跨平台去重/限额数组，否则会出现“统计 27、卡片 43”的口径不一致。
 function displayStatsFor(supplements = {}) {
   const steam = supplements.steam || {};
+  const steamBoards = supplements.steamBoards || {};
   const taptap = supplements.taptap || {};
   const haoyou = supplements.haoyou || {};
   const news = supplements.news || {};
   const count = (items) => Array.isArray(items) ? items.length : 0;
   return [
     { category: "新游上线", count: count(supplements.mobileUpcoming || [...(taptap.upcoming || []), ...(haoyou.upcoming || [])]) + count(steam.newGames) },
-    { category: "Steam 榜单", count: count(steam.mostPlayed) + count(steam.topSellingCN) },
-    { category: "游戏热点话题", count: count(taptap.hotTopics) },
+    { category: "Steam 榜单", count: count(steamBoards.hot) + count(steamBoards.newGames) },
     { category: "版本更新", count: count(supplements.mobileEventsToday || []) + count(supplements.mobileEventsFuture || []) },
     { category: "行业资讯", count: count(news.gcores) + count(news.gamersky) },
   ].filter((item) => item.count > 0);
@@ -496,6 +496,10 @@ function ChartPanel({ title, subtitle, icon, items, allItems, variant, emptyText
   return <section className="chart-panel"><header className="supplement-panel-header"><div><span className="supplement-eyebrow">{icon}{subtitle}</span><h3>{title}</h3></div><button type="button" className="supplement-view-all" onClick={() => onViewAll?.({ title, subtitle, items: allItems || items, variant, chart: true })}>查看全部</button></header>{items?.length ? <div className="chart-list">{items.map((item) => <SupplementCard item={item} showRank compact variant={variant} onOpen={onOpen} key={item.id} />)}</div> : <div className="supplement-empty">{emptyText || "本次没有可展示的资讯。"}</div>}</section>;
 }
 
+function NameOnlyBoard({ title, source, items, emptyText }) {
+  return <section className="chart-panel name-only-board"><header className="supplement-panel-header"><div><span className="supplement-eyebrow">{source}</span><h3>{title}</h3></div></header>{items?.length ? <ol className="name-only-board-list">{items.map((item, index) => <li key={item.id || `${item.gameName}-${index}`}><span className="name-only-board-rank">{item.rank || index + 1}</span><span className="name-only-board-image-wrap">{item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : null}</span>{item.detailUrl ? <a className="name-only-board-name" href={item.detailUrl} target="_blank" rel="noreferrer">{item.gameName || item.title}</a> : <span className="name-only-board-name">{item.gameName || item.title}</span>}</li>)}</ol> : <div className="supplement-empty">{emptyText || "暂无可展示的 Steam 数据。"}</div>}</section>;
+}
+
 function PlatformPanel({ title, source, items, allItems, variant, variantFor, onOpen, onViewAll }) {
   const resolveVariant = (item) => variantFor?.(item) || variant;
   return <section className={`supplement-panel${variant ? ` supplement-panel--${variant}` : ""}`}><header className="supplement-panel-header"><div><span className="supplement-eyebrow">{source}</span><h3>{title}</h3></div><button type="button" className="supplement-view-all" onClick={() => onViewAll?.({ title, subtitle: source, items: allItems || items, variant, variantFor })}>查看全部</button></header>{items?.length ? <div className="supplement-list">{items.map((item) => <SupplementCard item={item} variant={resolveVariant(item)} onOpen={onOpen} key={item.id} />)}</div> : <div className="supplement-empty">暂无可展示的资讯。</div>}</section>;
@@ -508,6 +512,7 @@ function AllCardsModal({ value, onClose, onOpen }) {
 
 function PlatformSupplements({ data, onOpen, onViewAll }) {
   const steam = data?.steam || {};
+  const steamBoards = data?.steamBoards || {};
   const taptap = data?.taptap || {};
   const haoyou = data?.haoyou || {};
   const news = data?.news || {};
@@ -523,8 +528,7 @@ function PlatformSupplements({ data, onOpen, onViewAll }) {
   return <section className="supplements" aria-label="今日简讯内容">
     <section id="daily-new-games" className="supplement-anchor"><PlatformPanel title="手机游戏 · 即将上线" source="TapTap / 好游快爆 · 仅今日 · 完整展示" items={mobileUpcoming} allItems={mobileUpcomingAll} variant="mobile-upcoming" onOpen={onOpen} onViewAll={viewAll} /></section>
     <section id="daily-events" className="supplement-anchor"><div className="supplement-two-column"><PlatformPanel title="版本更新 / 活动 / 联动 · 今日" source="TapTap / 好游快爆 · 今日 · 最多 15 条" items={mobileEventsToday} allItems={mobileEventsTodayAll} variant="taptap-event" variantFor={(item) => item.sourceId === "ref-haoyou" ? "haoyou-update" : "taptap-event"} onOpen={onOpen} onViewAll={viewAll} /><PlatformPanel title="版本更新 / 活动 / 联动 · 未来" source="TapTap / 好游快爆 · 明日完整展示 · 不足 10 条按日期补充" items={mobileEventsFuture} allItems={mobileEventsFutureAll} variant="taptap-event" variantFor={(item) => item.sourceId === "ref-haoyou" ? "haoyou-update" : "taptap-event"} onOpen={onOpen} onViewAll={viewAll} /></div></section>
-    <section id="daily-hot-topics" className="supplement-anchor"><PlatformPanel title="热榜话题" source="TapTap · 热门话题" items={taptap.hotTopics || []} allItems={taptap.hotTopics || []} variant="hot-topic" onOpen={onOpen} onViewAll={viewAll} /></section>
-    <section id="daily-steam" className="supplement-anchor"><ChartPanel title="Steam · 热门 / 新上榜" subtitle="热玩榜 × 畅销榜 · 至多 10 条" icon={<Flame size={12} />} items={steam.highlights || []} allItems={steam.highlights || []} variant="steam-highlight" emptyText="暂无符合“热门 / 新上榜”条件的 Steam 游戏。" onOpen={onOpen} onViewAll={viewAll} /><PlatformPanel title="Steam 新游上线" source="Steam · 新游上线" items={steam.newGames || []} allItems={steam.newGames || []} variant="steam-new-game" onOpen={onOpen} onViewAll={viewAll} /></section>
+    <section id="daily-steam" className="supplement-anchor"><div className="supplement-two-column"><NameOnlyBoard title="Steam · 热门榜" source="Steam 中国区 · 热门畅销榜 · 10 条" items={steamBoards.hot || []} emptyText={steamBoards.error ? "Steam 中国区热门榜暂时无法获取。" : undefined} /><NameOnlyBoard title="Steam · 新游榜" source="Steam 中国区 · 商店新游 · 10 条" items={steamBoards.newGames || []} emptyText={steamBoards.error ? "Steam 中国区新游榜暂时无法获取。" : undefined} /></div></section>
     {editorial.length ? <section id="daily-editorial" className="supplement-anchor"><PlatformPanel title="端游资讯" source="机核 / 游民星空 · 已完成正文与图文布局校验" items={editorial} allItems={editorialAll} variant="editorial" onOpen={onOpen} onViewAll={viewAll} /></section> : null}
   </section>;
 }
@@ -650,7 +654,6 @@ export default function DashboardPage() {
       "版本更新": "daily-events",
       "新游上线": "daily-new-games",
       "Steam 榜单": "daily-steam",
-      "游戏热点话题": "daily-hot-topics",
       "行业资讯": "daily-editorial",
     };
     const target = targets[category] || "daily-brief-top";

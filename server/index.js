@@ -56,6 +56,7 @@ import {
 } from "./dailyPoster.js";
 import { writeWeeklyPoster } from "./weeklyPoster.js";
 import { buildStandaloneHtml } from "../src/utils/export.js";
+import { getSteamBoards } from "./steamBoards.js";
 
 const app = express();
 const port = Number(process.env.GAME_NEWS_API_PORT || 64424);
@@ -651,9 +652,11 @@ app.get("/api/articles/today", (_req, res) =>
 app.get("/api/articles", (req, res) =>
   res.json({ ok: true, ...listArticles(req.query) }),
 );
-app.get("/api/dashboard", (_req, res) => {
+app.get("/api/dashboard", async (_req, res) => {
   try {
-    res.json({ ok: true, ...getDashboardProjection() });
+    const projection = getDashboardProjection();
+    const steamBoards = await getSteamBoards();
+    res.json({ ok: true, ...projection, supplements: { ...projection.supplements, steamBoards } });
   } catch (e) {
     res
       .status(500)
@@ -874,7 +877,7 @@ app.post("/api/daily-poster/generate", async (req, res) => {
       return res.status(400).json({ ok: false, message: requestedIds.length ? "所选资讯中没有符合“仅今日”规则的条目" : "今日暂无可生成海报的资讯" });
     }
     const assetBase = `${req.protocol}://${req.get("host")}`;
-    const poster = await writeDailyPoster({ root, articles, assetBase });
+    const poster = await writeDailyPoster({ root, articles, assetBase, steamBoards: await getSteamBoards() });
     res.json({
       ok: true,
       ...poster,

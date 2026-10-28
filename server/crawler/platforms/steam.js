@@ -130,6 +130,14 @@ async function requestSteamDetails(url) {
   }
 }
 
+async function requestBoardPowershellJson(url) {
+  const command = `$ProgressPreference='SilentlyContinue'; Invoke-RestMethod -Uri '${url}' -TimeoutSec 4 | ConvertTo-Json -Depth 20`;
+  const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { maxBuffer: 8 * 1024 * 1024 });
+  const payload = JSON.parse(stdout);
+  if (!payload || typeof payload !== "object") throw new Error("Steam 榜单 JSON 无效");
+  return payload;
+}
+
 export function cleanSteamTitle(title = "") {
   return String(title)
     .replace(/\s*\[[^\]]+\]\s*/g, " ")
@@ -546,6 +554,32 @@ async function fetchCandidates(maxCandidates = 24) {
     const items = fallback ? parseSearchPage(fallback) : [];
     return { items: items.slice(0, maxCandidates), via: fallback ? "firecrawl-search" : "none" };
   }
+}
+
+export async function fetchSteamNewGameCandidates({ limit = 10 } = {}) {
+  const result = await fetchCandidates(Math.max(limit, 10));
+  return result.items.slice(0, limit).map((item) => ({
+    id: item.id,
+    gameName: cleanLocalizedSteamName(item.name || ""),
+  }));
+}
+
+export async function fetchSteamBoardNames({ limit = 10 } = {}) {
+  // 今日简讯的两个 Steam 榜单只采用中国区商店接口：
+  // top_sellers = 中国区畅销/热门，new_releases = 中国区商店新游。
+  // 不再把全站在线人数榜混入“热门榜”。
+  const featuredPayload = await requestBoardPowershellJson(FEATURED_API);
+  const seenHot = new Set();
+  const hot = (Array.isArray(featuredPayload?.top_sellers?.items) ? featuredPayload.top_sellers.items : [])
+    .map((item) => ({ gameName: cleanLocalizedSteamName(item?.name || ""), imageUrl: item?.header_image || "", detailUrl: `https://store.steampowered.com/app/${item?.id || ""}/?cc=CN&l=schinese` }))
+    .filter((item) => item.gameName && !isSteamNoiseTitle(item.gameName) && !seenHot.has(item.detailUrl) && seenHot.add(item.detailUrl))
+    .slice(0, limit);
+  const seen = new Set();
+  const newGames = (Array.isArray(featuredPayload?.new_releases?.items) ? featuredPayload.new_releases.items : [])
+    .map((item) => ({ gameName: cleanLocalizedSteamName(item?.name || ""), imageUrl: item?.header_image || "", detailUrl: `https://store.steampowered.com/app/${item?.id || ""}/?cc=CN&l=schinese` }))
+    .filter((item) => item.gameName && !isSteamNoiseTitle(item.gameName) && !seen.has(item.detailUrl) && seen.add(item.detailUrl))
+    .slice(0, limit);
+  return { hot, newGames };
 }
 
 async function fetchTopSellerCandidates(maxCandidates = 30) {

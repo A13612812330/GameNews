@@ -5,12 +5,12 @@
  * 它的内部逻辑在验证脚本里根本引不到。把这两件事做成纯函数之后，
  * scripts/verify-poster-pipeline-hardening.mjs 可以直接断言，反证也能逐项打坏。
  *
- * 1. 图片可达性探测 + 占位替换
+ * 1. 图片可达性探测
  *    `--screenshot` 要等页面 load 事件。日报海报实测有 59 张 <img>，全部指向本机
  *    /api/image-proxy?url=…（该路由内部 12s 超时）。任意一张上游慢，load 就被推迟；
  *    多张叠加即可击穿 45s 的内层截图预算 ⇒ PNG 不落盘 ⇒ 当天海报投递失败。
- *    修法：截图前先并发探测这些图片地址，把**确认不可达**的换成内联 data URI 占位图，
- *    让 load 不再依赖外网。归档原件不动，只改渲染副本。
+ *    修法：截图前先并发探测这些图片地址。任何图片未就绪都由调用方阻断投递，
+ *    不再生成带缺图占位的海报。
  *
  * 2. 画布高度策略（截断保护）
  *    固定 --window-size=1100,12000：内容不足时靠裁边去掉底部空白；内容**超出**时会被
@@ -268,8 +268,8 @@ export function summarizeImageProbe(probe) {
     },
     line: total
       ? `[poster] 图片可达性：${reachable}/${total} 可达` +
-        (failed.length ? `，${failed.length} 张不可达已换占位图（${reasons}）` : "") +
-        (unprobed.length ? `，${unprobed.length} 张未探测（超预算，保留原样）` : "") +
+        (failed.length ? `，${failed.length} 张不可达（${reasons}）` : "") +
+        (unprobed.length ? `，${unprobed.length} 张未探测（超预算）` : "") +
         `，耗时 ${Number(probe?.elapsedMs) || 0}ms`
       : "[poster] 图片可达性：素材页无外链图片，跳过探测",
   };

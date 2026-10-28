@@ -447,7 +447,42 @@ function topicColumns(rows, assetBase, sectionIndex) {
   return `<section class="poster-section poster-section--topics"><header><span>0${sectionIndex + 1}</span><h2>热榜话题</h2><small>${rows.length} 条 · 按热榜排名</small></header><div class="poster-topic-rank-list">${rows.map((article, rank) => topicRankCard(article, assetBase, rank)).join("")}</div></section>`;
 }
 
-function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0.1:64424", generatedAt = new Date() } = {}) {
+function steamBoardList(title, items = []) {
+  const rows = items
+    .filter((item) => item?.gameName && item?.detailUrl)
+    .slice(0, 10)
+    .map((item, index) => {
+      const name = cleanText(item.gameName);
+      const rank = Number(item.rank) || index + 1;
+      const image = String(item.imageUrl || "").trim();
+      const fallbackUrls = Array.isArray(item.imageFallbackUrls)
+        ? item.imageFallbackUrls.map((url) => String(url || "").trim()).filter(Boolean)
+        : [];
+      const fallbackAttr = fallbackUrls.length
+        ? ` data-image-fallbacks="${escapeHtml(fallbackUrls.join("|"))}"`
+        : "";
+      const cover = image
+        ? `<span class="poster-steam-board-cover"><img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" loading="lazy"${fallbackAttr} /></span>`
+        : `<span class="poster-steam-board-cover is-empty">S</span>`;
+      return `<a class="poster-steam-board-row" href="${escapeHtml(item.detailUrl)}" target="_blank" rel="noreferrer"><b>${String(rank).padStart(2, "0")}</b>${cover}<span>${escapeHtml(name)}</span></a>`;
+    })
+    .join("");
+  return rows ? `<div class="poster-steam-board"><h3>${escapeHtml(title)}</h3><div class="poster-steam-board-list">${rows}</div></div>` : "";
+}
+
+function steamBoardsSection(steamBoards = {}, sectionIndex = 0) {
+  const hot = Array.isArray(steamBoards.hot) ? steamBoards.hot : [];
+  const newGames = Array.isArray(steamBoards.newGames) ? steamBoards.newGames : [];
+  const lists = [
+    steamBoardList("热门畅销榜", hot),
+    steamBoardList("商店新游榜", newGames),
+  ].filter(Boolean).join("");
+  if (!lists) return "";
+  const count = hot.length + newGames.length;
+  return `<section class="poster-section poster-section--steam-boards"><header><span>0${sectionIndex + 1}</span><h2>Steam 中国区双榜</h2><small>${count} 条 · 热门畅销 / 商店新游</small></header><div class="poster-steam-boards">${lists}</div></section>`;
+}
+
+function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0.1:64424", generatedAt = new Date(), steamBoards = {} } = {}) {
   const date = shanghaiDateKey(generatedAt);
   const buckets = new Map([
     ["手机游戏 · 即将上线", []], ["版本更新 / 活动 / 联动", []], ["热榜话题", []], ["Steam", []], ["端游资讯", []],
@@ -466,7 +501,8 @@ function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0
     const compact = name === "Steam";
     return `<section class="poster-section poster-section--${upcoming ? "upcoming" : compact ? "compact" : "feature"}"><header><span>0${index + 1}</span><h2>${escapeHtml(name)}</h2><small>${rows.length} 条</small></header><div class="poster-grid">${rows.map((article, itemIndex) => cardFor(article, assetBase, itemIndex)).join("")}</div></section>`;
   }).join("");
-  const sections = sectionMarkup ? `${sectionMarkup}<style>
+  const steamSection = steamBoardsSection(steamBoards, [...buckets.entries()].filter(([, rows]) => rows.length).length);
+  const sections = (sectionMarkup || steamSection) ? `${sectionMarkup}${steamSection}<style>
     .poster-section--feature .poster-card:nth-child(n){grid-column:span 5;min-height:208px}
     .poster-section--topics .poster-topic-rank-list{display:flex;flex-direction:column;gap:9px;margin-top:14px}
     .poster-topic-rank{display:grid;grid-template-columns:44px 84px minmax(0,1fr);gap:13px;align-items:center;padding:11px 15px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
@@ -481,6 +517,7 @@ function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0
     .poster-topic-rank-title{color:var(--ink);font-size:13.5px;font-weight:800;line-height:1.38;text-decoration:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .poster-topic-rank-title:hover{color:var(--mint);text-decoration:underline}
     .poster-topic-rank-body>p{margin:0;color:#536560;font-size:11px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .poster-section--steam-boards{margin-top:42px}.poster-steam-boards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:15px}.poster-steam-board{overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 8px 20px rgba(16,32,39,.06)}.poster-steam-board h3{margin:0;padding:11px 13px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#102027,#1b806b);color:#fff;font-size:13px;letter-spacing:.02em}.poster-steam-board-list{padding:2px 12px}.poster-steam-board-row{display:grid;grid-template-columns:26px 52px minmax(0,1fr);gap:9px;align-items:center;min-height:43px;border-bottom:1px solid rgba(21,42,50,.1);color:var(--ink);text-decoration:none}.poster-steam-board-row:last-child{border-bottom:0}.poster-steam-board-row>b{color:var(--coral);font:700 12px/1 Georgia,serif}.poster-steam-board-row>span:last-child{overflow:hidden;font-size:12px;font-weight:800;line-height:1.28;text-overflow:ellipsis;white-space:nowrap}.poster-steam-board-row:hover>span:last-child{color:var(--mint);text-decoration:underline}.poster-steam-board-cover{display:grid;width:52px;height:29px;place-items:center;overflow:hidden;border-radius:4px;background:var(--mist);color:var(--mint);font:700 12px Georgia,serif}.poster-steam-board-cover img{display:block;width:100%;height:100%;object-fit:cover}
     .poster-section--events{margin-top:38px}.poster-section--events>.poster-section-title{display:flex;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--ink)}.poster-section--events>.poster-section-title span{color:var(--coral);font:700 30px/.8 Georgia,serif}.poster-section--events>.poster-section-title h2{margin:0;font-size:20px;letter-spacing:.02em}.poster-section--events>.poster-section-title small{margin-left:auto;color:#697b78;font-size:11px}
     .poster-event-block{margin-top:16px}
     .poster-event-block-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
@@ -527,9 +564,9 @@ function buildLegacyDailyPosterHtml(articles = [], { assetBase = "http://127.0.0
     .poster-detail-content{overflow:auto;padding:22px 24px 32px}.poster-detail-heading{display:flex;justify-content:space-between;gap:12px;color:#71827d;font-size:11px;font-weight:700}.poster-detail-content h2{margin:11px 0 4px;font-size:22px;line-height:1.35}.poster-detail-title{display:block;color:var(--mint);font-weight:800;font-size:15px;line-height:1.6;text-decoration:none}.poster-detail-title:hover{text-decoration:underline}
     .poster-detail-body{margin-top:18px;color:#374d48;font-size:14px;line-height:1.9}.poster-detail-body p{margin:0 0 14px;white-space:pre-wrap}.poster-detail-body .is-quote{padding:10px 13px;border-left:3px solid var(--mint);background:var(--mist)}.poster-detail-body h4{margin:22px 0 9px;color:var(--ink);font-size:17px}.poster-detail-body h5{margin:14px 0 5px;font-size:14px}.poster-detail-body figure{margin:18px 0;text-align:center}.poster-detail-body figure img{display:block;width:auto;max-width:100%;max-height:540px;margin:0 auto;object-fit:contain;border-radius:8px;background:var(--mist)}
     @media(max-width:980px){.poster-section--feature .poster-card.is-rich,.poster-section--feature .poster-card:not(.is-rich){grid-column:auto !important}.poster-section--upcoming .poster-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.poster-card--upcoming{height:98px;min-height:98px}.poster-event-grid{grid-template-columns:1fr}}
-    @media(max-width:680px){.poster-section--upcoming .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.poster-card--upcoming{height:92px;min-height:92px;grid-template-columns:62px minmax(0,1fr);gap:9px;padding:0 9px 0 10px}.poster-card--upcoming .poster-cover,.poster-card--upcoming .poster-cover.is-contain{width:62px;height:62px}.poster-detail-content{padding:18px 16px 25px}.poster-detail-content h2{font-size:19px}.poster-detail-body figure img{max-height:390px}}
+    @media(max-width:680px){.poster-section--upcoming .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.poster-card--upcoming{height:92px;min-height:92px;grid-template-columns:62px minmax(0,1fr);gap:9px;padding:0 9px 0 10px}.poster-card--upcoming .poster-cover,.poster-card--upcoming .poster-cover.is-contain{width:62px;height:62px}.poster-steam-boards{grid-template-columns:1fr}.poster-detail-content{padding:18px 16px 25px}.poster-detail-content h2{font-size:19px}.poster-detail-body figure img{max-height:390px}}
   </style><dialog id="poster-detail-dialog"><div class="poster-detail-shell"><header class="poster-detail-toolbar"><strong>完整抓取内容</strong><button class="poster-detail-close" type="button" aria-label="关闭">×</button></header><div class="poster-detail-content"></div></div></dialog><script>
-    (() => { const dialog = document.querySelector('#poster-detail-dialog'); const content = dialog?.querySelector('.poster-detail-content'); const close = dialog?.querySelector('.poster-detail-close'); document.querySelectorAll('[data-poster-detail]').forEach((button) => button.addEventListener('click', () => { const source = document.getElementById(button.dataset.posterDetail); if (!dialog || !content || !source) return; content.replaceChildren(source.content.cloneNode(true)); dialog.showModal(); })); close?.addEventListener('click', () => dialog.close()); dialog?.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); }); })();
+    (() => { const dialog = document.querySelector('#poster-detail-dialog'); const content = dialog?.querySelector('.poster-detail-content'); const close = dialog?.querySelector('.poster-detail-close'); document.querySelectorAll('[data-poster-detail]').forEach((button) => button.addEventListener('click', () => { const source = document.getElementById(button.dataset.posterDetail); if (!dialog || !content || !source) return; content.replaceChildren(source.content.cloneNode(true)); dialog.showModal(); })); close?.addEventListener('click', () => dialog.close()); dialog?.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); }); document.querySelectorAll('img[data-image-fallbacks]').forEach((image) => image.addEventListener('error', () => { const fallbacks = image.dataset.imageFallbacks.split('|').filter(Boolean); const next = fallbacks.shift(); image.dataset.imageFallbacks = fallbacks.join('|'); if (next) image.src = next; })); })();
   </script>` : "";
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>简讯海报-${date}</title><style>
     :root{--night:#102027;--ink:#152a32;--paper:#f4f0e8;--panel:#fffdf8;--line:rgba(21,42,50,.16);--mint:#1b806b;--coral:#e85d3f;--mist:#e2ede8}*{box-sizing:border-box}html{background:var(--paper)}body{margin:0;background:linear-gradient(180deg,#dfece7 0,var(--paper) 430px);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",sans-serif}.page{width:min(1280px,calc(100% - 40px));margin:0 auto;padding:34px 0 72px}.masthead{position:relative;display:flex;justify-content:space-between;align-items:end;gap:22px;padding:25px 28px 23px;overflow:hidden;background:var(--night);color:#f8f3e8;border-radius:0 0 26px 26px;box-shadow:0 16px 38px rgba(16,32,39,.18)}.masthead:after{content:"";position:absolute;right:-60px;top:-130px;width:420px;height:420px;border:1px solid rgba(255,255,255,.18);border-radius:50%;box-shadow:0 0 0 42px rgba(255,255,255,.04),0 0 0 84px rgba(255,255,255,.03)}.masthead>div{position:relative;z-index:1}.eyebrow{color:#a4e5d3;font-size:11px;font-weight:800;letter-spacing:.16em}.masthead h1{margin:7px 0 0;font:700 clamp(42px,6vw,74px)/.92 Georgia,"Microsoft YaHei",serif;letter-spacing:-.06em}.masthead p{max-width:540px;margin:12px 0 0;color:#c6d7d2;font-size:12px}.date{text-align:right;font-size:11px;color:#b9cbc6}.date b{display:block;margin-bottom:4px;color:#fff9ee;font-size:19px}.poster-section{margin-top:38px}.poster-section header{display:flex;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--ink)}.poster-section header span{color:var(--coral);font:700 30px/.8 Georgia,serif}.poster-section h2{margin:0;font-size:20px;letter-spacing:.02em}.poster-section small{margin-left:auto;color:#697b78;font-size:11px}.poster-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin-top:16px;grid-auto-flow:dense}.poster-section--compact .poster-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.poster-card{display:grid;grid-column:span 6;grid-template-columns:minmax(150px,36%) minmax(0,1fr);min-height:224px;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:0 8px 22px rgba(16,32,39,.09)}.poster-section--feature .poster-card:nth-child(5n+1){grid-column:span 7;min-height:270px}.poster-section--feature .poster-card:nth-child(5n+2){grid-column:span 5}.poster-section--feature .poster-card:nth-child(5n+3){grid-column:span 5}.poster-section--feature .poster-card:nth-child(5n+4){grid-column:span 7}.poster-card--update.is-visual,.poster-card--editorial.is-visual,.poster-card--topic{grid-template-columns:minmax(185px,42%) minmax(0,1fr)}.poster-cover{display:grid;min-height:100%;place-items:center;overflow:hidden;background:var(--mist)}.poster-cover img{display:block;width:100%;height:100%;object-fit:cover}.poster-cover.is-contain{padding:10px}.poster-cover.is-contain img{object-fit:contain;border-radius:9px}.poster-cover.is-empty{color:var(--mint);font:700 42px Georgia,serif}.poster-copy{display:flex;flex-direction:column;min-width:0;padding:16px}.poster-meta{display:flex;justify-content:space-between;gap:8px;color:#758682;font-size:10px;font-weight:700}.poster-copy h3{margin:8px 0 3px;font-size:16px;line-height:1.28}.poster-title,.poster-mobile-schedule{display:block;color:var(--mint);font-weight:800;font-size:14px;line-height:1.48;text-decoration:none}.poster-title:hover,.poster-mobile-schedule:hover{text-decoration:underline}.poster-copy>p{margin:9px 0;color:#536560;font-size:12px;line-height:1.72;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.poster-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:auto}.poster-tags span{border:1px solid rgba(27,128,107,.28);border-radius:999px;color:var(--mint);padding:3px 7px;font-size:9px;font-weight:700}.poster-card--upcoming{grid-column:auto;grid-template-columns:98px minmax(0,1fr);height:158px;min-height:158px;border-radius:10px}.poster-card--upcoming .poster-copy{padding:8px 10px}.poster-card--upcoming .poster-copy h3{margin:3px 0;font-size:13px}.poster-card--upcoming .poster-mobile-schedule{font-size:10px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}.poster-card--upcoming .poster-copy>p{display:-webkit-box;margin:4px 0;font-size:10px;line-height:1.45;-webkit-line-clamp:2;-webkit-box-orient:vertical}.poster-card--upcoming .poster-tags{max-height:18px;overflow:hidden}.poster-card--steam{grid-column:auto;grid-template-columns:104px minmax(0,1fr);min-height:160px;border-radius:10px}.poster-card--steam .poster-copy{padding:12px}.poster-card--steam .poster-copy>p{display:none}.poster-card--topic .poster-title{font-size:16px;color:var(--ink)}@media(max-width:980px){.poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.poster-card,.poster-section--feature .poster-card:nth-child(n){grid-column:auto}.poster-section--compact .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:680px){.page{width:min(100% - 24px,1280px);padding-top:18px}.masthead{display:block;padding:22px 20px;border-radius:0 0 18px 18px}.date{text-align:left;margin-top:18px}.poster-grid,.poster-section--compact .poster-grid{grid-template-columns:1fr}.poster-card,.poster-card--topic{grid-column:auto;grid-template-columns:118px minmax(0,1fr);min-height:170px}.poster-card--upcoming{height:158px;min-height:158px;grid-template-columns:94px minmax(0,1fr)}.poster-card--editorial,.poster-card--update{grid-template-columns:1fr}.poster-card--editorial .poster-cover,.poster-card--update .poster-cover{min-height:210px}.poster-card--editorial .poster-cover img,.poster-card--update .poster-cover img{max-height:300px;object-fit:contain}.poster-copy{padding:13px}}
@@ -542,12 +579,12 @@ export function buildDailyPosterHtml(articles = [], options = {}) {
   return buildLegacyDailyPosterHtml(articles, options);
 }
 
-export async function writeDailyPoster({ root, articles, assetBase }) {
+export async function writeDailyPoster({ root, articles, assetBase, steamBoards = {} }) {
   const date = shanghaiDateKey();
   const fileName = `简讯海报-${date}.html`;
   const outputDir = path.join(root, "output");
   const archiveDir = path.join(outputDir, "poster-archive");
-  const html = buildDailyPosterHtml(articles, { assetBase });
+  const html = buildDailyPosterHtml(articles, { assetBase, steamBoards });
   const outputPath = path.join(outputDir, fileName);
   const archivePath = path.join(archiveDir, fileName);
   await fs.mkdir(archiveDir, { recursive: true });

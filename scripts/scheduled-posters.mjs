@@ -12,7 +12,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  applyImagePlaceholders,
   buildScreenshotArgs,
   planCanvasHeight,
   probeImageReachability,
@@ -36,6 +35,8 @@ if (sourceFileArg && sourceFileName !== sourceFileArg) throw new Error("海报�
 const articleIdsIndex = process.argv.indexOf("--article-ids");
 const articleIdsArg = articleIdsIndex >= 0 ? String(process.argv[articleIdsIndex + 1] || "") : "";
 const articleIds = [...new Set(articleIdsArg.split(",").map((id) => id.trim()).filter(Boolean))];
+// 手动补发必须显式传入 --force；定时任务仍按当天成功记录防重。
+const forceResend = process.argv.includes("--force");
 const deliveryLockPath = path.join(projectRoot, "data", "logs", `poster-delivery-${kind}.lock`);
 const deliveryStatePath = path.join(projectRoot, "data", "logs", "poster-delivery.json");
 let deliveryLockOwned = false;
@@ -318,35 +319,28 @@ function staticUrlFor(filePath) {
 }
 
 /**
- * 生成截图专用的「渲染副本」：把探测判定不可达的图片换成内联占位图。
+ * 海报投递前验证全部图片均可访问。
  *
  * 动机：--screenshot 要等页面 load 事件，而日报海报实测有 58 张 <img> 全部指向本机
  * /api/image-proxy（该路由内部 12s 超时）。任意一张上游慢，load 就被推迟；多张叠加
  * 即可击穿内层 45s 截图预算 ⇒ PNG 不落盘 ⇒ 当天没有海报。
  *
- * 边界（别误读）：本机实测 58 张全部可达、完整下载仅 145ms，所以这**不是** 2026-09-28
- * 卡死的根因，而是一道防御 —— 把「某天某张图挂掉」从「整天没有海报」降级成
- * 「海报里少一张图」，并把失败原因写进结果 JSON。
- *
- * 归档原件**不改**（它是要发布到 GitHub Pages 的产物，不能被占位图污染），
- * 只多写一份 <名字>.render.html 供截图使用，用完即删。
+ * 图片探测失败时直接阻断本次投递；绝不再替换成占位图后继续发送。
+ * 这样飞书里不会出现“未加载图片的海报”。下一次定时任务会重新验证并重试。
  */
 async function prepareRenderCopy(filePath) {
   const html = await fs.readFile(filePath, "utf8");
   const targets = probeTargets(html, { serverBase });
   if (!targets.length) return { url: staticUrlFor(filePath), imageProbe: null, renderPath: "" };
-  const probe = await probeImageReachability(targets.map((target) => target.resolved));
+  // 8 秒比原先 3 秒更适合跨境 CDN；仍保持并发与总体预算，避免单张卡住整条任务。
+  const probe = await probeImageReachability(targets.map((target) => target.resolved), { timeoutMs: 8_000, concurrency: 8, budgetMs: 60_000 });
   const summary = summarizeImageProbe(probe);
   console.warn(summary.line);
-  const failed = probe.failed.map((item) => item.url);
-  if (!failed.length) {
-    return { url: staticUrlFor(filePath), imageProbe: { ...summary.fields, replaced: 0, unmatched: 0 }, renderPath: "" };
+  if (probe.failed.length || probe.unprobed.length) {
+    const failed = probe.failed.slice(0, 3).map((item) => item.url).join("；");
+    throw new Error(`海报图片未全部就绪，已阻断投递（失败 ${probe.failed.length}，未探测 ${probe.unprobed.length}）${failed ? `：${failed}` : ""}`);
   }
-  const applied = applyImagePlaceholders(html, failed, { serverBase });
-  const renderPath = filePath.replace(/\.html$/u, ".render.html");
-  await fs.writeFile(renderPath, applied.html, "utf8");
-  console.warn(`[poster] 渲染副本 ${path.basename(renderPath)}：替换 ${applied.replaced} 张占位图，未匹配 ${applied.unmatched} 张`);
-  return { url: staticUrlFor(renderPath), renderPath, imageProbe: { ...summary.fields, replaced: applied.replaced, unmatched: applied.unmatched } };
+  return { url: staticUrlFor(filePath), imageProbe: { ...summary.fields, replaced: 0, unmatched: 0 }, renderPath: "" };
 }
 
 /**
@@ -405,7 +399,7 @@ async function renderPosterPreview(filePath) {
   const previewPath = filePath.replace(/\.html$/u, ".png");
   await fs.mkdir(browserProfileDir, { recursive: true });
 
-  // 渲染副本（把不可达图片换成内联占位图）。归档原件不动，无论成败都会删掉副本。
+  // 图片先全部验证，再渲染正式归档原件；失败即中止，避免无图海报进入飞书。
   const prepared = await prepareRenderCopy(filePath);
 
   // 单次截图硬超时。--screenshot 要等页面 load 事件，只要有一张走 /api/image-proxy
@@ -580,7 +574,7 @@ if (!acquireDeliveryLock()) {
   console.log(JSON.stringify({ ok: true, kind, skipped: true, reason: "同类型海报投递正在进行，已跳过重复进程" }));
   process.exit(0);
 }
-if (await hasDeliveredToday()) {
+if (!forceResend && await hasDeliveredToday()) {
   deliveryLockOwned = false;
   releaseDeliveryLock();
   console.log(JSON.stringify({ ok: true, kind, skipped: true, reason: "今天同类型海报已成功发送，跳过重复投递" }));
@@ -623,6 +617,9 @@ try {
 if (kind === "weekly" && !publicBase) {
   throw new Error(`周报公开访问地址不可用：${publicError}`);
 }
+if (kind !== "weekly" && !previewPath) {
+  throw new Error(`日报图片未生成，已阻断飞书投递：${publicError || "未知渲染错误"}`);
+}
 const feishu = await sendFeishuAppBot(targetPath, targetName.replace(/\.html$/u, ""), { publicBase, previewPath });
 if (!feishu.skipped) await markDelivered(targetName, feishu.messageId || "");
 deliveryLockOwned = false;
@@ -641,4 +638,5 @@ console.log(JSON.stringify({
   imageProbe: renderInfo?.imageProbe || null,
   canvas: renderInfo?.canvas || null,
   feishu: feishu.skipped ? feishu.reason : "sent",
+  forced: forceResend,
 }, null, 2));
