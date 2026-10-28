@@ -1,0 +1,62 @@
+name: Publish posters to GitHub Pages
+
+# 把 published-posters/ 作为静态站点发布，让海报有一条**不依赖本机**的公网链接。
+# 存在的理由：原先对外可看的只有 64425 上的 Cloudflare 临时隧道，
+# 而那要求本机常驻一个对外暴露的端口。搬到 Pages 后本机不再需要暴露任何端口。
+#
+# 前置：归档海报必须是自包含的（不能残留 http://127.0.0.1:.../api/image-proxy）。
+# 由 scripts/rewrite-archived-posters.mjs 保证，下面 build 里还有一道门禁兜底。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "published-posters/**"
+      - ".github/workflows/publish-posters-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 门禁：归档里若残留本机地址，外部访客打开时图片会全部加载失败。
+      # 宁可让部署失败，也不要把「看起来正常、实际全是破图」的页面发出去。
+      - name: Guard - no local-only URLs in archived posters
+        run: |
+          set -euo pipefail
+          if grep -rInE 'https?://(127\.0\.0\.1|localhost)(:[0-9]+)?/' published-posters --include='*.html'; then
+            echo "::error::归档海报仍含本机地址。请先运行：node scripts/rewrite-archived-posters.mjs"
+            exit 1
+          fi
+          echo "OK: 未发现本机地址"
+
+      - name: Report archive size
+        run: |
+          echo "HTML 文件数: $(find published-posters -name '*.html' | wc -l)"
+          du -sh published-posters
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: published-posters
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
