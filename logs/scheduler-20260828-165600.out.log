@@ -1,0 +1,182 @@
+[调度] 守护启动，每 30s 检查（once=false, safe-first）
+[调度] safe-first 播种（monitor(60min), steam(360min)）：重启后首个周期不立即采集/提醒
+[调度] 开始任务 monitor @ 2026-08-28
+[调度] 完成 monitor: {"sources":["ref-x7:ok:8/0","ref-steam:ok:15/5","ref-gamersky:ok:16/2","ref-gcores:ok:4/0","ref-haoyou:ok:35/1","ref-taptap:ok:0/0"],"feishu":{"inserted":4,"updated":8,"ambiguous":2,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 90.0s
+[调度] 开始任务 monitor @ 2026-08-28
+[调度] 完成 monitor: {"sources":["ref-x7:ok:8/0","ref-steam:ok:15/2","ref-gamersky:ok:15/2","ref-gcores:ok:4/0","ref-haoyou:ok:39/2","ref-taptap:ok:1/0"],"feishu":{"inserted":4,"updated":12,"ambiguous":2,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 73.1s
+[调度] 开始任务 monitor @ 2026-08-28
+[调度] 完成 monitor: {"sources":["ref-x7:ok:8/0","ref-steam:ok:15/3","ref-gamersky:ok:12/2","ref-gcores:ok:5/1","ref-haoyou:ok:39/0","ref-taptap:ok:0/0"],"feishu":{"inserted":2,"updated":16,"ambiguous":2,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 131.2s
+[调度] 开始任务 monitor @ 2026-08-28
+[调度] 完成 monitor: {"sources":["ref-x7:ok:8/0","ref-steam:ok:15/2","ref-gamersky:ok:12/3","ref-gcores:ok:5/0","ref-haoyou:ok:39/0","ref-taptap:ok:0/0"],"feishu":{"inserted":2,"updated":18,"ambiguous":2,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 112.1s
+[调度] 开始任务 monitor @ 2026-08-28
+[调度] 完成 monitor: {"sources":["ref-x7:ok:8/0","ref-steam:ok:15/1","ref-gamersky:ok:13/1","ref-gcores:ok:5/0","ref-haoyou:ok:40/1","ref-taptap:ok:1/0"],"feishu":{"inserted":2,"updated":20,"ambiguous":3,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 81.8s
+[调度] 开始任务 steam @ 2026-08-28
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 41.0s
+[调度] 开始任务 monitor @ 2026-08-28
+[调度] 完成 monitor: {"sources":["ref-x7:ok:8/0","ref-steam:ok:15/3","ref-gamersky:ok:16/2","ref-gcores:ok:5/0","ref-haoyou:ok:40/0","ref-taptap:ok:0/0"],"feishu":{"inserted":3,"updated":22,"ambiguous":3,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 47.0s
+[调度] 开始任务 retention @ 2026-08-28
+[调度] 完成 retention: {"ok":true}
+[调度] 耗时 0.1s
+[调度] 开始任务 steam @ 2026-08-28
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 63.6s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:9/0","ref-steam:ok:15/5","ref-gamersky:ok:0/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/1","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 90.1s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:9/0","ref-steam:failed:0/0","ref-gamersky:ok:1/1","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 374.5s
+[调度] 开始任务 daily-brief @ 2026-08-29
+[调度] 完成 daily-brief: {"file":"E:\\新建文件夹\\Codex-GPT\\GameNewsUnified\\output\\poster-archive\\简讯海报-2026-08-29.html","poster":"sent"}
+[调度] 耗时 8.5s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/3","ref-gamersky:ok:2/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 70.5s
+[调度] 开始任务 steam @ 2026-08-29
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 48.9s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:5/3","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 110.4s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:failed:0/0","ref-gamersky:ok:5/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 375.0s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:5/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 80.3s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:6/1","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 88.1s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:failed:0/0","ref-gamersky:ok:6/2","ref-gcores:ok:0/0","ref-haoyou:ok:27/1","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 373.9s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:11/5","ref-gcores:ok:0/0","ref-haoyou:ok:27/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 315.1s
+[调度] 开始任务 steam @ 2026-08-29
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 36.7s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:failed:0/0","ref-gamersky:ok:5/1","ref-gcores:ok:0/0","ref-haoyou:ok:27/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 374.0s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:7/2","ref-gcores:ok:0/0","ref-haoyou:ok:27/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 105.9s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:9/1","ref-gcores:ok:0/0","ref-haoyou:ok:27/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 135.1s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:failed:0/0","ref-gamersky:ok:9/0","ref-gcores:ok:0/0","ref-haoyou:ok:27/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 375.5s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:10/2","ref-gcores:ok:0/0","ref-haoyou:ok:27/0","ref-taptap:ok:2/0"],"feishu":{"inserted":1,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 90.7s
+[调度] 开始任务 monitor @ 2026-08-29
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:10/0","ref-gcores:ok:0/0","ref-haoyou:ok:27/0","ref-taptap:ok:0/0"],"feishu":{"inserted":1,"updated":7,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 59.7s
+[调度] 开始任务 steam @ 2026-08-29
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 50.8s
+[调度] 开始任务 retention @ 2026-08-29
+[调度] 完成 retention: {"ok":true}
+[调度] 耗时 0.1s
+[调度] 开始任务 steam @ 2026-08-29
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 47.9s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/3","ref-gamersky:ok:0/0","ref-gcores:ok:0/0","ref-haoyou:ok:26/1","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 56.7s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:failed:0/0","ref-gamersky:ok:1/1","ref-gcores:ok:0/0","ref-haoyou:ok:26/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 375.4s
+[调度] 开始任务 daily-brief @ 2026-08-30
+[调度] 完成 daily-brief: {"file":"E:\\新建文件夹\\Codex-GPT\\GameNewsUnified\\output\\poster-archive\\简讯海报-2026-08-30.html","poster":"sent"}
+[调度] 耗时 8.4s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/2","ref-gamersky:ok:4/2","ref-gcores:ok:0/0","ref-haoyou:ok:26/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 58.6s
+[调度] 开始任务 steam @ 2026-08-30
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 32.2s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:6/1","ref-gcores:ok:0/0","ref-haoyou:ok:26/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 79.5s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:7/1","ref-gcores:ok:0/0","ref-haoyou:ok:26/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 129.6s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:7/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 74.4s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:7/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 157.6s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:5/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 90.7s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:8/4","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":1,"updated":5,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 41.9s
+[调度] 开始任务 steam @ 2026-08-30
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 22.1s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:10/2","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 51.5s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:11/1","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 63.4s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:10/3","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 78.5s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/1","ref-gamersky:ok:10/1","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 169.6s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/0","ref-gamersky:ok:7/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 83.4s
+[调度] 开始任务 monitor @ 2026-08-30
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:12/2","ref-gamersky:ok:7/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":6,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 343.3s
+[调度] 开始任务 steam @ 2026-08-30
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 26.8s
+[调度] 开始任务 retention @ 2026-08-30
+[调度] 完成 retention: {"ok":true}
+[调度] 耗时 0.2s
+[调度] 开始任务 steam @ 2026-08-30
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 55.2s
+[调度] 开始任务 monitor @ 2026-08-31
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:failed:0/0","ref-gamersky:ok:0/0","ref-gcores:ok:0/0","ref-haoyou:ok:25/1","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":3,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 374.1s
+[调度] 开始任务 monitor @ 2026-08-31
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:ok:15/4","ref-gamersky:ok:1/1","ref-gcores:ok:0/0","ref-haoyou:ok:25/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":3,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 57.1s
+[调度] 开始任务 weekly @ 2026-08-31
+[调度] 完成 weekly: {"file":"E:\\新建文件夹\\Codex-GPT\\GameNewsUnified\\output\\weekly-poster-archive\\游戏资讯周报-2026-08-31.html","poster":"sent"}
+[调度] 耗时 8.5s
+[调度] 开始任务 daily-brief @ 2026-08-31
+[调度] 完成 daily-brief: {"file":"E:\\新建文件夹\\Codex-GPT\\GameNewsUnified\\output\\poster-archive\\简讯海报-2026-08-31.html","poster":"sent"}
+[调度] 耗时 13.1s
+[调度] 开始任务 monitor @ 2026-08-31
+[调度] 完成 monitor: {"sources":["ref-x7:ok:6/0","ref-steam:failed:0/0","ref-gamersky:ok:4/2","ref-gcores:ok:2/2","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":3,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 378.1s
+[调度] 开始任务 steam @ 2026-08-31
+[调度] 完成 steam: {"ok":true}
+[调度] 耗时 36.9s
+[调度] 开始任务 monitor @ 2026-08-31
+[调度] 完成 monitor: {"sources":["ref-x7:ok:5/0","ref-steam:ok:15/1","ref-gamersky:ok:6/2","ref-gcores:ok:2/0","ref-haoyou:ok:25/0","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":3,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 40.7s
+[调度] 开始任务 monitor @ 2026-08-31
+[调度] 完成 monitor: {"sources":["ref-x7:ok:5/0","ref-steam:ok:15/1","ref-gamersky:ok:8/1","ref-gcores:ok:2/0","ref-haoyou:ok:28/3","ref-taptap:ok:2/0"],"feishu":{"inserted":0,"updated":4,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 87.6s
+[调度] 开始任务 monitor @ 2026-08-31
+[调度] 完成 monitor: {"sources":["ref-x7:ok:5/0","ref-steam:ok:15/1","ref-gamersky:ok:11/4","ref-gcores:ok:2/0","ref-haoyou:ok:28/0","ref-taptap:ok:0/0"],"feishu":{"inserted":0,"updated":3,"ambiguous":0,"alerts":0,"queued":0,"attempted":0,"sent":0,"failed":0}}
+[调度] 耗时 73.8s

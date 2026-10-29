@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameNews · 资讯工作台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231b8a91'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-family='Arial' font-size='13' font-weight='700' fill='white'%3EGN%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">GN</span>
+      <span><strong>GameNews</strong><small>资讯采集与简讯工作台</small></span>
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="mainNav">菜单</button>
+    </div>
+    <nav class="nav nav--public" id="publicNav" aria-label="资讯网站导航">
+      <a href="#/site" data-route="site">资讯首页</a>
+      <a href="#/site-dash" data-route="site-dash">新游与活动</a>
+      <a href="#/site-steam" data-route="site-steam">Steam 新游</a>
+      <a href="#/site-briefs" data-route="site-briefs">简讯海报</a>
+      <a class="nav-admin-link" href="#/admin" data-route="admin">管理后台</a>
+    </nav>
+    <nav class="nav nav--admin" id="adminNav" aria-label="管理后台导航">
+      <a href="#/admin" data-route="admin">运营概览</a>
+      <a href="#/admin/feed" data-route="admin-feed">内容审核</a>
+      <a href="#/admin/briefs" data-route="admin-briefs">简讯出品</a>
+      <a href="#/admin/ops" data-route="admin-ops">爬虫监控</a>
+      <a class="nav-back-link" href="#/site" data-route="site">← 返回资讯网站</a>
+    </nav>
+    <div class="sidebar-foot" id="health">—</div>
+  </aside>
+  <main class="main" id="main"></main>
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="详情抽屉" hidden>
+    <header class="drawer-head">
+      <strong id="drawerTitle">详情</strong>
+      <button class="icon-btn" id="drawerClose" aria-label="关闭抽屉">×</button>
+    </header>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+</div>
+<script src="/app.js" defer></script>
+</body>
+</html>

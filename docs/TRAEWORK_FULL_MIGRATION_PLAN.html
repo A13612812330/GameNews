@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GameNewsUnified · TraeWork 完整迁移实施与验收方案</title>
+<style>
+:root{--ink:#14212b;--muted:#667782;--paper:#fff;--canvas:#eef2f3;--line:#d5dfe1;--teal:#147a74;--teal-bg:#e8f6f3;--blue:#236387;--blue-bg:#e8f2f8;--amber:#95670f;--amber-bg:#fff5dd;--red:#a13f42;--red-bg:#fdecee;--mono:Consolas,"Cascadia Mono",monospace}*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--ink);font:14px/1.65 "Microsoft YaHei","PingFang SC",Arial,sans-serif}.wrap{max-width:1220px;margin:auto;padding:22px}.hero{padding:30px;border-radius:10px;background:linear-gradient(135deg,#142a35,#1b4e58);color:#fff}.hero small{color:#a9d7d1;font:700 11px var(--mono);letter-spacing:.14em}.hero h1{margin:8px 0;font-size:30px;line-height:1.25}.hero p{max-width:920px;margin:0;color:#daeaeb}.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}.chip{padding:3px 9px;border:1px solid #5b8383;border-radius:999px;color:#e8f6f5;font-size:11px;font-weight:700}.section{margin:16px 0;padding:20px 22px;border:1px solid var(--line);border-top:4px solid var(--blue);border-radius:8px;background:var(--paper)}h2{margin:0 0 10px;font-size:20px;line-height:1.3}h3{margin:18px 0 7px;color:#235c78;font-size:15px}.note{margin:10px 0;padding:10px 13px;border-left:4px solid var(--blue);background:var(--blue-bg)}.note.warn{border-color:var(--amber);background:var(--amber-bg)}.note.stop{border-color:var(--red);background:var(--red-bg)}.note.ok{border-color:var(--teal);background:var(--teal-bg)}.badge{display:inline-block;padding:1px 8px;border-radius:999px;background:#edf1f2;color:#4f6269;font-size:11px;font-weight:800}.ok{background:var(--teal-bg);color:var(--teal)}.pending{background:var(--amber-bg);color:var(--amber)}.block{background:var(--red-bg);color:var(--red)}table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px}th,td{padding:8px 10px;border:1px solid var(--line);vertical-align:top;text-align:left}th{background:#edf4f5;color:#2f4a56;font-weight:800}tr:nth-child(even) td{background:#fbfcfc}.code{font:11px/1.45 var(--mono);overflow-wrap:anywhere}.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}.flow div{position:relative;min-height:94px;padding:12px;border:1px solid var(--line);border-radius:6px;background:#fff}.flow b{display:block;margin-bottom:4px;color:var(--teal);font:800 11px var(--mono)}.flow span{color:var(--muted);font-size:12px}.flow div:not(:last-child)::after{position:absolute;right:-7px;top:40px;z-index:2;color:#7f9296;content:"→"}.check{padding-left:0;list-style:none}.check li{position:relative;margin:5px 0;padding-left:22px}.check li::before{position:absolute;left:0;top:2px;display:grid;width:15px;height:15px;place-items:center;border:1px solid #8b9b9e;border-radius:3px;color:#4d6265;content:"□"}.toc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.toc a{padding:9px 10px;border:1px solid var(--line);border-radius:5px;background:#fff;color:#285c74;text-decoration:none;font-size:12px;font-weight:700}.toc a:hover{border-color:#57998e;background:#f0f9f7}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.muted{color:var(--muted)}@media(max-width:780px){.wrap{padding:10px}.hero,.section{padding:18px 14px}.hero h1{font-size:23px}.flow,.toc,.two{grid-template-columns:1fr}.flow div:not(:last-child)::after{right:auto;left:14px;top:auto;bottom:-17px;content:"↓"}table{display:block;overflow:auto;white-space:normal}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header class="hero">
+  <small>TRAEWORK HANDOFF · IMPLEMENTATION PLAN</small>
+  <h1>GameNewsUnified 完整合并迁移方案</h1>
+<p>目标是一个以资讯阅读和发现为主的游戏资讯网站，同时把 GameNews 的采集、筛选、简讯编辑、海报/周报、RAW 验收、飞书提醒与 Steam 分析迁入同一个项目和同一套数据库。管理后台只服务内部运营，复用已有管理页面。本文只定义实施与验收，不授权删除旧数据、停止旧任务或发送真实机器人消息。</p>
+  <div class="chips"><span class="chip">工作目录：E:\新建文件夹\Codex-GPT\GameNewsUnified</span><span class="chip">基线日期：2026-08-27</span><span class="chip">迁移原则：只增不删</span><span class="chip">切换前必须双跑</span></div>
+</header>
+
+<section class="section" id="summary">
+<h2>1. 交付边界与当前结论</h2>
+<div class="note warn"><b>当前统一项目不是完整替代品。</b>它已有统一库、规则层、公开资讯页、文章/Steam/归档浏览与部分任务框架；但旧 GameNews 的“勾选条目 → 简讯编辑 → 生成海报/周报 → 归档/回收站”和“爬虫监控 → 手动抓取 → RAW 验收”尚未完成迁移。</div>
+<table><tr><th>范围</th><th>本次 TraeWork 要完成</th><th>不在本次直接执行</th></tr><tr><td>公开资讯网站</td><td>资讯首页、新游与活动、Steam 新游、简讯海报、文章详情；以阅读、发现、图文卡片为主</td><td>把公开站做成后台数据表或用后台导航替代网站导航</td></tr><tr><td>管理后台</td><td>复用旧 GameNews/WX News Wiki 的采集、审核、出品与监控页面；仅对内部开放</td><td>重新设计一套与原工作流不同的假功能页</td></tr><tr><td>数据</td><td>补迁缺失业务数据、引用资产、运行/RAW 审计；保留人工评级、来源和事件时间</td><td>修改旧项目线上数据库、无备份删除旧数据</td></tr><tr><td>任务与飞书</td><td>迁入真实执行逻辑、指纹防重、双机器人分工、先双跑</td><td>未验证前停旧任务、读取或打印任何密钥</td></tr><tr><td>缓存</td><td>按引用迁移、输出迁移、列清理清单</td><td>整包复制或直接删除旧 <span class="code">crawler-assets</span></td></tr></table>
+</section>
+
+<section class="section"><h2>2. 用户真正需要的工作流（迁移后验收口径）</h2>
+<div class="flow"><div><b>01 / 公开站</b><strong>资讯阅读与发现</strong><br><span>新游、活动、端游、Steam 和简讯海报以网站内容页呈现。</span></div><div><b>02 / 采集审核</b><strong>后台抓取资讯</strong><br><span>多平台采集、详情补全、图片、清洗、去重、评级与选择。</span></div><div><b>03 / 产出</b><strong>简讯与海报</strong><br><span>进入简讯编辑，或直接生成今日海报/周报。</span></div><div><b>04 / 推送监控</b><strong>RAW 与飞书</strong><br><span>RAW 验收、运行记录、飞书文档和机器人发送。</span></div></div>
+<div class="note ok">统一规则层必须是唯一入口：同一篇内容在抓取列表、今日简讯、海报、周报、飞书文档和机器人消息中的游戏名、标题、日期、去重和评级必须一致。</div>
+</section>
+
+<section class="section"><h2>3. 已有资产盘点（先复用，不重写）</h2>
+<table><tr><th>资产</th><th>已观察位置</th><th>状态</th><th>TraeWork 操作</th></tr><tr><td>统一数据库与规则层</td><td class="code">GameNewsUnified/schema.sql<br>server/rules/</td><td><span class="badge ok">已有</span></td><td>扩表前先出 schema diff；继续使用 <span class="code">legacy_id + source_system</span> 追溯。</td></tr><tr><td>数据迁移脚本</td><td class="code">GameNewsUnified/scripts/migrate-legacy.mjs</td><td><span class="badge ok">已有</span></td><td>只扩展幂等迁移；必须保留 dry-run、审计日志和旧库只读。</td></tr><tr><td>旧版抓取资讯</td><td class="code">GameNews/src/pages/FeedPage.jsx</td><td><span class="badge pending">待迁</span></td><td>迁移选择持久化、今日默认范围、生成海报入口与 RAW 同口径投影。</td></tr><tr><td>旧版简讯编辑</td><td class="code">GameNews/src/pages/BriefPage.jsx<br>GameNews/src/components/AppShell.jsx</td><td><span class="badge pending">待迁</span></td><td>迁移编辑器、HTML 导出、海报/简讯/归档回收站及下载预览。</td></tr><tr><td>旧版爬虫监控</td><td class="code">GameNews/src/pages/CrawlerMonitorPage.jsx<br>GameNews/server/crawler/</td><td><span class="badge pending">待迁</span></td><td>迁移来源状态、手动运行、详情补全、RAW 同步、最近运行记录。</td></tr><tr><td>旧 RAW 静态验收</td><td class="code">GameNews/scripts/gen-raw-articles.mjs</td><td><span class="badge pending">待迁</span></td><td>改为读取统一库；保留 RAW HTML/JSON 输出和图片地址处理。</td></tr><tr><td>飞书新游/活动与海报发送</td><td class="code">GameNews/server/feishuTopicMonitor.js<br>GameNews/server/feishuTopicNotifier.js<br>GameNews/scripts/scheduled-posters.mjs</td><td><span class="badge pending">待迁</span></td><td>先抽成无密钥的 adapter；凭据只通过运行环境注入。</td></tr><tr><td>Steam 数据与分析</td><td class="code">GameNewsUnified/server/steam/<br>server/tasks/steam-snapshot.mjs</td><td><span class="badge ok">部分已有</span></td><td>保留 AppID 主键、快照只追加；补接现有 Steam 三源分析输出。</td></tr></table>
+</section>
+
+<section class="section"><h2>4. 数据迁移内容与字段规则</h2>
+<table><tr><th>目标</th><th>必须迁入</th><th>关键规则</th><th>验收</th></tr><tr><td>资讯与事件</td><td>文章正文、图片清单、来源 URL、业务日期、清洗标题/游戏名、评分、人工评级、选择状态</td><td>文章 ID 不可仅用游戏名；事件去重采用游戏 + 日期桶 + 分类 + 标题语义；保留多来源关系。</td><td>随机抽 20 条：原文、清洗字段、业务日期与手工评级一致。</td></tr><tr><td>简讯/海报/周报</td><td>历史 HTML、条目、模板、生成时间、归档/回收站状态、下载文件映射</td><td>输出文件使用日期命名；历史不因日常清理消失；周报读取过去 14 天留档。</td><td>各打开 3 个历史文件；回收站恢复一次；生成一次新 HTML。</td></tr><tr><td>RAW 与运行审计</td><td>必要的 crawl_runs、失败记录、规则快照、RAW 产物元数据</td><td>不建议无脑导入所有原始 HTML；保留可审计范围与近期开关。</td><td>运行一次抓取，能看到来源、发现/新增、失败原因和 RAW 链接。</td></tr><tr><td>图片与缓存</td><td>文章/海报/简讯实际引用的本地图片；外链原 URL</td><td>仅复制被引用的 <span class="code">/crawler-assets/</span>；外链可失败时使用统一代理/本地副本策略。</td><td>抽样 TapTap、好游快爆、Steam、海报各 5 条，图片可显示。</td></tr><tr><td>飞书文档与评级</td><td>游戏评级、人工说明、平台、事件记录、入库时间、来源链接</td><td>人工评级永远覆盖自动评分；新游同游戏优先 TapTap，活动同事件优先好游快爆。</td><td>人工调一条评级后，同游戏后续事件与排序同步更新。</td></tr></table>
+<h3>字段映射文件</h3><p>以 <span class="code">docs/field-mapping.md</span> 为现有基础。TraeWork 必须在写代码前补充：<b>选择状态、brief_items、回收站状态、资产本地路径、RAW 运行关联、飞书 event_id/指纹</b> 的目标表和迁移规则。</p>
+</section>
+
+<section class="section"><h2>5. 分阶段实施顺序</h2>
+<table><tr><th>阶段</th><th>任务</th><th>允许写入</th><th>退出条件</th></tr><tr><td>P0 冻结与备份</td><td>记录旧库/输出/缓存清单与哈希；保存当前统一库快照。</td><td>仅新备份目录。</td><td>能恢复统一库；旧项目无写入。</td></tr><tr><td>P1 差异对账</td><td>对文章、事件、简讯、海报、运行记录、RAW、图片引用做数量/字段差异表。</td><td>报告文件。</td><td>每项有“已迁/缺失/不迁原因”。</td></tr><tr><td>P2 数据补迁</td><td>扩展幂等迁移脚本，补迁选择、brief_items、运行审计、必要 RAW 元数据。</td><td>仅统一库；写 migration_logs。</td><td>dry-run 与实迁数量一致；重复运行不新增业务重复。</td></tr><tr><td>P3 引用资产与输出</td><td>建立 assets 清单；复制引用图片；迁移 HTML/PNG 输出和归档索引；接入图片代理。</td><td>统一项目 data/assets、output。</td><td>抽样图片/历史文件在统一项目可打开。</td></tr><tr><td>P4 核心功能迁移</td><td>迁移 Feed、Brief、Crawler Monitor 的真实 API 和 UI；实现选择持久化、回收站、RAW。</td><td>统一项目前后端、测试。</td><td>完整跑通“抓取→选择→编辑/海报→归档”。</td></tr><tr><td>P5 飞书与定时任务</td><td>迁入文档同步、两个机器人、日/周海报任务；发布默认关闭，先 dry-run。</td><td>统一库通知/投递表；外部发送仅经明确确认。</td><td>两种机器人分别通过模拟消息和指纹防重测试。</td></tr><tr><td>P6 连续双跑</td><td>旧项目与统一项目并行：连续 3 个日任务 + 1 个周报。</td><td>两边各自输出，不互相覆盖。</td><td>无 P0/P1 差异；报告可审核。</td></tr><tr><td>P7 正式切换</td><td>先切新输出/机器人，再观察 24 小时，最后暂停旧任务。</td><td>计划任务与服务状态。</td><td>可回滚；新任务稳定；用户确认暂停旧任务。</td></tr><tr><td>P8 缓存清理</td><td>稳定 14 天后扫描旧缓存，生成待删除清单并等待人工确认。</td><td>无，直到用户确认删除。</td><td>删除后仍能打开所有当前引用资产。</td></tr></table>
+</section>
+
+<section class="section"><h2>6. 前端实施要求（避免再出现“页面像功能但不可用”）</h2>
+<div class="two"><div><h3>公开站顶部导航，只保留 5 项</h3><ul><li>资讯首页</li><li>新游与活动</li><li>Steam 新游</li><li>简讯海报</li><li>管理后台</li></ul><p class="muted">读者不应看到抓取、来源、飞书和运行日志；这些只在管理后台出现。</p></div><div><h3>后台侧栏，只保留 4 项</h3><ul><li><b>运营概览：</b>待办、来源状态和关键统计。</li><li><b>内容审核：</b>分组、筛选、勾选、详情、来源原文、人工评级。</li><li><b>简讯出品：</b>编辑器、生成、预览、下载、历史与回收站。</li><li><b>爬虫监控：</b>来源状态、手动抓取、RAW 验收、运行日志。</li></ul></div></div>
+<div class="note">任何“生成海报 / 导出 HTML / 发送飞书”按钮，必须调用真实 API 并在成功后提供可打开/下载的产物；功能未迁完前必须显示迁移状态，不能伪造完成。</div>
+</section>
+
+<section class="section"><h2>7. 飞书、机器人与定时任务迁移</h2>
+<table><tr><th>任务</th><th>频率/触发</th><th>输出</th><th>去重与安全要求</th></tr><tr><td>新游/活动监控</td><td>每小时采集完成后，仅处理本轮新增</td><td>飞书文档记录；S/A 新游、活动分两条消息发送</td><td>同游戏 + 事件日期 + 标题关键词；同游戏新游优先 TapTap，活动优先好游快爆；发送指纹入库。</td></tr><tr><td>每日海报</td><td>每日 09:30（当前约定，切换前再确认）</td><td>今日海报 HTML/PNG + 飞书消息</td><td>生成成功才发送；归档文件以日期命名；消息与文件状态分别记录。</td></tr><tr><td>周报海报</td><td>每周一 09:00（当前约定，切换前再确认）</td><td>过去 14 天周报 HTML/PNG + 链接</td><td>具体日期，不使用“今日/昨天”；Steam、端游、活动按各自规则读取。</td></tr><tr><td>RAW 验收</td><td>每次抓取完成后</td><td>RAW_ARTICLES.html / JSON</td><td>与抓取资讯采用同一规则投影；本地图片走静态资产服务，远程防盗链图走统一代理。</td></tr></table>
+<div class="note stop"><b>凭据边界：</b>不读取、不复制、不打印旧项目 <span class="code">.env</span> 或密钥。TraeWork 只提供环境变量名称与配置模板；由用户在新服务运行环境中填入。真实发送必须在用户明确授权后开启 <span class="code">--publish</span>。</div>
+</section>
+
+<section class="section"><h2>8. 验收清单</h2>
+<ul class="check"><li>旧项目数据库的哈希与记录数未被迁移过程改变。</li><li>统一库可重复运行迁移，第二次不产生重复 articles/events/brief_items/assets。</li><li>固定回归案例：好游快爆游戏名清洗、TapTap/好游跨平台合并、活动业务日期、人工评级覆盖均通过。</li><li>抓取资讯：选择 3 条后刷新页面，选择状态仍在；进入简讯编辑后条目一致。</li><li>简讯：生成 HTML、预览、下载、归档、移入/恢复回收站均可用。</li><li>海报：默认使用今日条目；生成后给出打开和下载入口；本地/远程图片至少抽样 20 张正常显示。</li><li>周报：过去 14 天；重点新游、活动、Steam、端游资讯规则正确；无数据区不渲染。</li><li>RAW：与抓取资讯共享同一清洗、日期和去重口径；可打开且图片可显示。</li><li>飞书：文档写前校验字段；人工评级同步；机器人模拟消息分新游/活动；同指纹不重复发送。</li><li>双跑：连续 3 个日任务 + 1 周报的差异报告为零个阻塞项。</li><li>浏览器：桌面与 390px 下导航清晰、无横向溢出、控制台无错误。</li><li>切换后 24 小时：新服务正常、旧任务仍可恢复；用户确认后才暂停旧任务。</li></ul>
+</section>
+
+<section class="section"><h2>9. 明确禁止事项</h2>
+<ul><li>不得整包复制 <span class="code">GameNews/node_modules</span>、缓存、临时输出或超过数十 GB 的 <span class="code">crawler-assets</span>。</li><li>不得先停止 GameNews 的任务、飞书机器人或本地服务。</li><li>不得用“游戏名”作为唯一主键；Steam 仍以 AppID 为唯一主键。</li><li>不得覆盖人工评级、来源链接、业务日期、原文内容或历史归档。</li><li>不得把实时、历史、演示 Steam 数据混排。</li><li>不得把未实现的生成、下载、发送按钮显示为可用。</li></ul>
+</section>
+
+<section class="section"><h2>10. TraeWork 开工顺序</h2>
+<ol><li>阅读本文件、<span class="code">docs/HANDOFF_TO_CODEX.html</span>、<span class="code">docs/field-mapping.md</span> 与 <span class="code">docs/p7-switch-pause-plan.md</span>。</li><li>仅做 P0/P1：生成差异清单和执行任务表，先提交给用户确认。</li><li>从 P2 开始，每阶段单独提交：变更文件列表、迁移前后统计、回归结果、可回滚点。</li><li>P4 先迁“抓取资讯 → 选择 → 简讯编辑 → 海报/归档”，再迁 RAW 和监控；不要先做视觉翻新。</li><li>P5 不接真实凭据；先完成 mock/dry-run 与数据库指纹验证。</li><li>P6 完成后再请求用户授权切换；P8 的缓存删除必须单独二次确认。</li></ol>
+</section>
+
+<footer class="muted" style="padding:10px 3px 24px">文档版本：2026-08-27。基于当前统一项目与旧 GameNews 代码路径核对形成；未执行真实迁移、停任务、删缓存或外部发送。</footer>
+</main>
+</body>
+</html>

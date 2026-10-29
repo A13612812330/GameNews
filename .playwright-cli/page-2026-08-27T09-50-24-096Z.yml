@@ -1,0 +1,16 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link [ref=e5] [cursor=pointer]:
+      - /url: /
+      - strong [ref=e9]: GameNews Unified
+    - navigation [ref=e10]:
+      - link "资讯首页" [ref=e11] [cursor=pointer]:
+        - /url: /
+      - link "新游与活动" [ref=e15] [cursor=pointer]:
+        - /url: /mobile
+      - link "Steam 新游" [ref=e18] [cursor=pointer]:
+        - /url: /steam
+      - link "管理后台" [ref=e21] [cursor=pointer]:
+        - /url: /admin/overview
+  - generic [ref=e25]: 正在读取统一数据…
+  - contentinfo [ref=e26]: 统一 SQLite 数据源 · 前端已迁入，采集与发送由迁移任务接管。

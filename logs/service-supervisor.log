@@ -1,0 +1,17 @@
+﻿2026-08-27 16:39:22 supervisor started root=E:\新建文件夹\Codex-GPT\GameNewsUnified node=D
+2026-08-27 16:39:22 supervisor error: This command cannot be run due to the error: The system cannot find the file specified.
+2026-08-27 16:39:40 supervisor error: This command cannot be run due to the error: The system cannot find the file specified.
+2026-08-27 16:39:58 supervisor error: This command cannot be run due to the error: The system cannot find the file specified.
+2026-08-27 16:40:16 supervisor started root=E:\新建文件夹\Codex-GPT\GameNewsUnified node=D:\NodeJS\node.exe
+2026-08-27 16:40:16 [api-server] started pid=33992 out=api-server-20260827-164016.out.log err=api-server-20260827-164016.err.log
+2026-08-27 16:40:16 [scheduler] started pid=20256 out=scheduler-20260827-164016.out.log err=scheduler-20260827-164016.err.log
+2026-08-27 16:46:50 [api-server] exited code=; restarting
+2026-08-27 16:46:55 [api-server] started pid=31824 out=api-server-20260827-164655.out.log err=api-server-20260827-164655.err.log
+2026-08-27 17:47:20 [api-server] exited code=; restarting
+2026-08-27 17:47:25 [api-server] started pid=21308 out=api-server-20260827-174725.out.log err=api-server-20260827-174725.err.log
+2026-08-27 17:48:34 [api-server] exited code=; restarting
+2026-08-27 17:48:39 [api-server] started pid=19140 out=api-server-20260827-174839.out.log err=api-server-20260827-174839.err.log
+2026-08-27 18:06:03 [scheduler] exited code=; restarting
+2026-08-27 18:06:08 [scheduler] started pid=9340 out=scheduler-20260827-180608.out.log err=scheduler-20260827-180608.err.log
+2026-08-28 16:55:55 [scheduler] exited code=; restarting
+2026-08-28 16:56:00 [scheduler] started pid=18688 out=scheduler-20260828-165600.out.log err=scheduler-20260828-165600.err.log

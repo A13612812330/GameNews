@@ -1,0 +1,521 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: GN
+      - generic [ref=e6]:
+        - strong [ref=e7]: GameNews Unified
+        - generic [ref=e8]: 资讯与选题工作台
+    - navigation "主导航" [ref=e9]:
+      - generic [ref=e10]: 浏览
+      - link "首页" [ref=e11] [cursor=pointer]:
+        - /url: "#/site"
+      - link "分类资讯" [ref=e12] [cursor=pointer]:
+        - /url: "#/site/dash"
+      - link "Steam 看板" [ref=e13] [cursor=pointer]:
+        - /url: "#/site/steam"
+      - link "海报归档" [ref=e14] [cursor=pointer]:
+        - /url: "#/site/briefs"
+      - generic [ref=e15]: 编辑发布
+      - link "资讯工作台" [ref=e16] [cursor=pointer]:
+        - /url: "#/feed"
+      - link "简讯海报周报" [ref=e17] [cursor=pointer]:
+        - /url: "#/briefs"
+      - generic [ref=e18]: 数据与系统
+      - link "来源监控" [ref=e19] [cursor=pointer]:
+        - /url: "#/sources"
+      - link "Steam 数据" [ref=e20] [cursor=pointer]:
+        - /url: "#/steam"
+      - link "飞书与评级" [ref=e21] [cursor=pointer]:
+        - /url: "#/feishu"
+      - link "运行记录" [ref=e22] [cursor=pointer]:
+        - /url: "#/ops"
+    - generic [ref=e23]: API OK
+  - main [ref=e24]:
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: 文章总数
+          - generic [ref=e29]: "989"
+          - generic [ref=e30]: 统一资讯库
+        - generic [ref=e31]:
+          - generic [ref=e32]: 手机游戏
+          - generic [ref=e33]: "179"
+          - generic [ref=e34]: TapTap / 好游快爆
+        - generic [ref=e35]:
+          - generic [ref=e36]: 福利游戏
+          - generic [ref=e37]: "16"
+          - generic [ref=e38]: 小七手游
+        - generic [ref=e39]:
+          - generic [ref=e40]: 端游资讯
+          - generic [ref=e41]: "53"
+          - generic [ref=e42]: 游民 / 机核
+        - generic [ref=e43]:
+          - generic [ref=e44]: Steam 游戏
+          - generic [ref=e45]: "66"
+          - generic [ref=e46]: AppID 唯一
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: 近期重点
+              - link "仪表盘 →" [ref=e52] [cursor=pointer]:
+                - /url: "#/site/dash"
+            - generic [ref=e54]:
+              - link "无图 《逆水寒》全新雨林版本正式上线 TapTap · 版本更新 · 2026-08-26" [ref=e55] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-639566072"
+                - generic [ref=e56]: 无图
+                - generic [ref=e58]:
+                  - generic [ref=e59]: 《逆水寒》全新雨林版本正式上线
+                  - generic [ref=e60]: TapTap · 版本更新 · 2026-08-26
+              - link "无图 《喵星军团》今日首发 TapTap · 新游上线 · 2026-08-26" [ref=e61] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-1186818632"
+                - generic [ref=e62]: 无图
+                - generic [ref=e64]:
+                  - generic [ref=e65]: 《喵星军团》今日首发
+                  - generic [ref=e66]: TapTap · 新游上线 · 2026-08-26
+              - link "无图 《防线出击》今天10点 首发 TapTap · 新游上线 · 2026-08-25" [ref=e67] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-1648979932"
+                - generic [ref=e68]: 无图
+                - generic [ref=e70]:
+                  - generic [ref=e71]: 《防线出击》今天10点 首发
+                  - generic [ref=e72]: TapTap · 新游上线 · 2026-08-25
+              - link "无图 《小小公寓物语》今天9点 首发 TapTap · 新游上线 · 2026-08-25" [ref=e73] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-825766117"
+                - generic [ref=e74]: 无图
+                - generic [ref=e76]:
+                  - generic [ref=e77]: 《小小公寓物语》今天9点 首发
+                  - generic [ref=e78]: TapTap · 新游上线 · 2026-08-25
+              - link "无图 《崩坏：星穹铁道》4.5版本「挥掷千星的筹码」 TapTap · 版本更新 · 2026-08-26" [ref=e79] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-1552657360"
+                - generic [ref=e80]: 无图
+                - generic [ref=e82]:
+                  - generic [ref=e83]: 《崩坏：星穹铁道》4.5版本「挥掷千星的筹码」
+                  - generic [ref=e84]: TapTap · 版本更新 · 2026-08-26
+              - 'link "无图 《《使命召唤®：现代战争® III 2023》》Steam 畅销榜（中国区） #6 Steam · Steam 畅销榜（中国区） · 2026-08-26" [ref=e85] [cursor=pointer]':
+                - /url: "#/site/article/gn%3Aref-steam-1956954014"
+                - generic [ref=e86]: 无图
+                - generic [ref=e88]:
+                  - generic [ref=e89]: "《《使命召唤®：现代战争® III 2023》》Steam 畅销榜（中国区） #6"
+                  - generic [ref=e90]: Steam · Steam 畅销榜（中国区） · 2026-08-26
+              - link "无图 一键换将零损失，策略搭配随心变 好游快爆 · 测试公测 · 2026-08-25" [ref=e91] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-haoyou-868867409"
+                - generic [ref=e92]: 无图
+                - generic [ref=e94]:
+                  - generic [ref=e95]: 一键换将零损失，策略搭配随心变
+                  - generic [ref=e96]: 好游快爆 · 测试公测 · 2026-08-25
+              - link "无图 《西游奇妙冒险》限量测试 TapTap · 测试公测 · 2026-08-25" [ref=e97] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-676403866"
+                - generic [ref=e98]: 无图
+                - generic [ref=e100]:
+                  - generic [ref=e101]: 《西游奇妙冒险》限量测试
+                  - generic [ref=e102]: TapTap · 测试公测 · 2026-08-25
+              - link "无图 《金铲铲之战》自然之力赛季 TapTap · 版本更新 · 2026-08-26" [ref=e103] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-2117645630"
+                - generic [ref=e104]: 无图
+                - generic [ref=e106]:
+                  - generic [ref=e107]: 《金铲铲之战》自然之力赛季
+                  - generic [ref=e108]: TapTap · 版本更新 · 2026-08-26
+              - link "无图 《奇迹暖暖》小鲤鱼历险记联动开启！ TapTap · 联动活动 · 2026-08-26" [ref=e109] [cursor=pointer]:
+                - /url: "#/site/article/gn%3Aref-taptap-1991274701"
+                - generic [ref=e110]: 无图
+                - generic [ref=e112]:
+                  - generic [ref=e113]: 《奇迹暖暖》小鲤鱼历险记联动开启！
+                  - generic [ref=e114]: TapTap · 联动活动 · 2026-08-26
+          - generic [ref=e115]:
+            - generic [ref=e116]: 重要游戏
+            - generic [ref=e118]:
+              - generic [ref=e119]:
+                - generic [ref=e120]: 手机游戏
+                - generic [ref=e121]:
+                  - link "无图 逆水寒 TapTap 版本更新" [ref=e122] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-taptap-639566072"
+                    - generic [ref=e123]: 无图
+                    - generic [ref=e125]:
+                      - generic [ref=e126]: 逆水寒
+                      - generic [ref=e127]:
+                        - generic [ref=e128]: TapTap
+                        - generic [ref=e129]: 版本更新
+                  - link "无图 喵星军团 TapTap 新游上线" [ref=e130] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-taptap-1186818632"
+                    - generic [ref=e131]: 无图
+                    - generic [ref=e133]:
+                      - generic [ref=e134]: 喵星军团
+                      - generic [ref=e135]:
+                        - generic [ref=e136]: TapTap
+                        - generic [ref=e137]: 新游上线
+                  - link "无图 防线出击 TapTap 新游上线" [ref=e138] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-taptap-1648979932"
+                    - generic [ref=e139]: 无图
+                    - generic [ref=e141]:
+                      - generic [ref=e142]: 防线出击
+                      - generic [ref=e143]:
+                        - generic [ref=e144]: TapTap
+                        - generic [ref=e145]: 新游上线
+                  - link "无图 小小公寓物语 TapTap 新游上线" [ref=e146] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-taptap-825766117"
+                    - generic [ref=e147]: 无图
+                    - generic [ref=e149]:
+                      - generic [ref=e150]: 小小公寓物语
+                      - generic [ref=e151]:
+                        - generic [ref=e152]: TapTap
+                        - generic [ref=e153]: 新游上线
+                  - link "无图 崩坏：星穹铁道 TapTap 版本更新" [ref=e154] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-taptap-1552657360"
+                    - generic [ref=e155]: 无图
+                    - generic [ref=e157]:
+                      - generic [ref=e158]: 崩坏：星穹铁道
+                      - generic [ref=e159]:
+                        - generic [ref=e160]: TapTap
+                        - generic [ref=e161]: 版本更新
+                  - link "无图 西游奇妙冒险 好游快爆 测试公测" [ref=e162] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-haoyou-868867409"
+                    - generic [ref=e163]: 无图
+                    - generic [ref=e165]:
+                      - generic [ref=e166]: 西游奇妙冒险
+                      - generic [ref=e167]:
+                        - generic [ref=e168]: 好游快爆
+                        - generic [ref=e169]: 测试公测
+              - generic [ref=e170]:
+                - generic [ref=e171]: 福利游戏（小七）
+                - generic [ref=e172]:
+                  - link "无图 真·三国无双 霸 小七 新游上线" [ref=e173] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-x7-765248750"
+                    - generic [ref=e174]: 无图
+                    - generic [ref=e176]:
+                      - generic [ref=e177]: 真·三国无双 霸
+                      - generic [ref=e178]:
+                        - generic [ref=e179]: 小七
+                        - generic [ref=e180]: 新游上线
+                  - link "无图 风云三国2 小七 新游上线" [ref=e181] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-x7-765225876"
+                    - generic [ref=e182]: 无图
+                    - generic [ref=e184]:
+                      - generic [ref=e185]: 风云三国2
+                      - generic [ref=e186]:
+                        - generic [ref=e187]: 小七
+                        - generic [ref=e188]: 新游上线
+                  - link "无图 异界深渊：觉醒 小七 新游上线" [ref=e189] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-x7-765248904"
+                    - generic [ref=e190]: 无图
+                    - generic [ref=e192]:
+                      - generic [ref=e193]: 异界深渊：觉醒
+                      - generic [ref=e194]:
+                        - generic [ref=e195]: 小七
+                        - generic [ref=e196]: 新游上线
+                  - link "无图 海魂 小七 新游上线" [ref=e197] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-x7-765224819"
+                    - generic [ref=e198]: 无图
+                    - generic [ref=e200]:
+                      - generic [ref=e201]: 海魂
+                      - generic [ref=e202]:
+                        - generic [ref=e203]: 小七
+                        - generic [ref=e204]: 新游上线
+                  - link "无图 猫之城 小七 新游上线" [ref=e205] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-x7-765227766"
+                    - generic [ref=e206]: 无图
+                    - generic [ref=e208]:
+                      - generic [ref=e209]: 猫之城
+                      - generic [ref=e210]:
+                        - generic [ref=e211]: 小七
+                        - generic [ref=e212]: 新游上线
+                  - link "无图 魔法迷域 小七 新游上线" [ref=e213] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-x7-765226837"
+                    - generic [ref=e214]: 无图
+                    - generic [ref=e216]:
+                      - generic [ref=e217]: 魔法迷域
+                      - generic [ref=e218]:
+                        - generic [ref=e219]: 小七
+                        - generic [ref=e220]: 新游上线
+          - generic [ref=e221]:
+            - generic [ref=e222]: 重要端游
+            - generic [ref=e224]:
+              - generic [ref=e225]:
+                - generic [ref=e226]: Steam 游戏（实时在线）
+                - generic [ref=e227]:
+                  - link "Mortal Shell II Mortal Shell II 2026-08-20 —" [ref=e228] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e229]: Mortal Shell II
+                    - generic [ref=e231]:
+                      - generic [ref=e232]: Mortal Shell II
+                      - generic [ref=e233]:
+                        - generic [ref=e234]: 2026-08-20
+                        - generic [ref=e235]: —
+                  - link "渔力全开 渔力全开 2026-08-20 —" [ref=e236] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e237]: 渔力全开
+                    - generic [ref=e239]:
+                      - generic [ref=e240]: 渔力全开
+                      - generic [ref=e241]:
+                        - generic [ref=e242]: 2026-08-20
+                        - generic [ref=e243]: —
+                  - link "无间地狱2 无间地狱2 2026-08-11(正式) —" [ref=e244] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e245]: 无间地狱2
+                    - generic [ref=e247]:
+                      - generic [ref=e248]: 无间地狱2
+                      - generic [ref=e249]:
+                        - generic [ref=e250]: 2026-08-11(正式)
+                        - generic [ref=e251]: —
+                  - link "Fields of Mistria Fields of Mistria 2026-08-05 —" [ref=e252] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e253]: Fields of Mistria
+                    - generic [ref=e255]:
+                      - generic [ref=e256]: Fields of Mistria
+                      - generic [ref=e257]:
+                        - generic [ref=e258]: 2026-08-05
+                        - generic [ref=e259]: —
+                  - link "Big Walk Big Walk 2026-08-04 —" [ref=e260] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e261]: Big Walk
+                    - generic [ref=e263]:
+                      - generic [ref=e264]: Big Walk
+                      - generic [ref=e265]:
+                        - generic [ref=e266]: 2026-08-04
+                        - generic [ref=e267]: —
+                  - link "机械狂欢 Machine Party 机械狂欢 Machine Party 2026-07-30 —" [ref=e268] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e269]: 机械狂欢 Machine Party
+                    - generic [ref=e271]:
+                      - generic [ref=e272]: 机械狂欢 Machine Party
+                      - generic [ref=e273]:
+                        - generic [ref=e274]: 2026-07-30
+                        - generic [ref=e275]: —
+                  - link "幻兽帕鲁 Palworld 幻兽帕鲁 Palworld 2026-07-10(正式) —" [ref=e276] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e277]: 幻兽帕鲁 Palworld
+                    - generic [ref=e279]:
+                      - generic [ref=e280]: 幻兽帕鲁 Palworld
+                      - generic [ref=e281]:
+                        - generic [ref=e282]: 2026-07-10(正式)
+                        - generic [ref=e283]: —
+                  - link "任务栏英雄 任务栏英雄 2026-05-27 —" [ref=e284] [cursor=pointer]:
+                    - /url: "#/site/steam"
+                    - generic [ref=e285]: 任务栏英雄
+                    - generic [ref=e287]:
+                      - generic [ref=e288]: 任务栏英雄
+                      - generic [ref=e289]:
+                        - generic [ref=e290]: 2026-05-27
+                        - generic [ref=e291]: —
+              - generic [ref=e292]:
+                - generic [ref=e293]: 端游资讯
+                - generic [ref=e294]:
+                  - link "无图 怪物猎人：荒野 游民星空 新游上线" [ref=e295] [cursor=pointer]:
+                    - /url: "#/site/article/wx%3Aref-gamersky-1776459862"
+                    - generic [ref=e296]: 无图
+                    - generic [ref=e298]:
+                      - generic [ref=e299]: 怪物猎人：荒野
+                      - generic [ref=e300]:
+                        - generic [ref=e301]: 游民星空
+                        - generic [ref=e302]: 新游上线
+                  - link "无图 断神 游民星空 新游上线" [ref=e303] [cursor=pointer]:
+                    - /url: "#/site/article/wx%3Aref-gamersky-1161045620"
+                    - generic [ref=e304]: 无图
+                    - generic [ref=e306]:
+                      - generic [ref=e307]: 断神
+                      - generic [ref=e308]:
+                        - generic [ref=e309]: 游民星空
+                        - generic [ref=e310]: 新游上线
+                  - link "无图 星露谷 游民星空 新游上线" [ref=e311] [cursor=pointer]:
+                    - /url: "#/site/article/wx%3Aref-gamersky-1533662450"
+                    - generic [ref=e312]: 无图
+                    - generic [ref=e314]:
+                      - generic [ref=e315]: 星露谷
+                      - generic [ref=e316]:
+                        - generic [ref=e317]: 游民星空
+                        - generic [ref=e318]: 新游上线
+                  - link "无图 共鸣：瘟疫传说传承 游民星空 新游上线" [ref=e319] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-gamersky-736569446"
+                    - generic [ref=e320]: 无图
+                    - generic [ref=e322]:
+                      - generic [ref=e323]: 共鸣：瘟疫传说传承
+                      - generic [ref=e324]:
+                        - generic [ref=e325]: 游民星空
+                        - generic [ref=e326]: 新游上线
+                  - link "无图 彩虹六号 游民星空 新游上线" [ref=e327] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-gamersky-468483554"
+                    - generic [ref=e328]: 无图
+                    - generic [ref=e330]:
+                      - generic [ref=e331]: 彩虹六号
+                      - generic [ref=e332]:
+                        - generic [ref=e333]: 游民星空
+                        - generic [ref=e334]: 新游上线
+                  - link "无图 战争机器：事变日 游民星空 新游上线" [ref=e335] [cursor=pointer]:
+                    - /url: "#/site/article/gn%3Aref-gamersky-2146899835"
+                    - generic [ref=e336]: 无图
+                    - generic [ref=e338]:
+                      - generic [ref=e339]: 战争机器：事变日
+                      - generic [ref=e340]:
+                        - generic [ref=e341]: 游民星空
+                        - generic [ref=e342]: 新游上线
+        - complementary [ref=e343]:
+          - generic [ref=e344]:
+            - generic [ref=e345]: 近期事件
+            - generic [ref=e347]:
+              - generic [ref=e348]:
+                - generic [ref=e349]:
+                  - generic [ref=e350]: 2026-08-26
+                  - generic [ref=e351]: 203 条
+                - link "新游上线 《真·三国无双 霸》2026年8月27日 10:00上线" [ref=e352] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-x7-765248750"
+                  - generic [ref=e353]: 新游上线
+                  - generic [ref=e354]: 《真·三国无双 霸》2026年8月27日 10:00上线
+                - link "新游上线 《风云三国2》2026年8月28日 10:00上线" [ref=e355] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-x7-765225876"
+                  - generic [ref=e356]: 新游上线
+                  - generic [ref=e357]: 《风云三国2》2026年8月28日 10:00上线
+                - link "新游上线 《异界深渊：觉醒》2026年8月28日 08:00上线" [ref=e358] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-x7-765248904"
+                  - generic [ref=e359]: 新游上线
+                  - generic [ref=e360]: 《异界深渊：觉醒》2026年8月28日 08:00上线
+                - link "新游上线 《海魂》2026年8月30日 10:00上线" [ref=e361] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-x7-765224819"
+                  - generic [ref=e362]: 新游上线
+                  - generic [ref=e363]: 《海魂》2026年8月30日 10:00上线
+                - link "新游上线 《猫之城》2026年8月27日 08:00上线" [ref=e364] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-x7-765227766"
+                  - generic [ref=e365]: 新游上线
+                  - generic [ref=e366]: 《猫之城》2026年8月27日 08:00上线
+                - link "新游上线 《魔法迷域》2026年8月29日 10:00上线" [ref=e367] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-x7-765226837"
+                  - generic [ref=e368]: 新游上线
+                  - generic [ref=e369]: 《魔法迷域》2026年8月29日 10:00上线
+              - generic [ref=e370]:
+                - generic [ref=e371]:
+                  - generic [ref=e372]: 2026-08-25
+                  - generic [ref=e373]: 76 条
+                - link "版本更新 《地牢猎手6》龙巢新版本上线" [ref=e374] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-taptap-1767939495"
+                  - generic [ref=e375]: 版本更新
+                  - generic [ref=e376]: 《地牢猎手6》龙巢新版本上线
+                - link "版本更新 《失控进化》S2赛季「制霸王座」" [ref=e377] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-taptap-1904504389"
+                  - generic [ref=e378]: 版本更新
+                  - generic [ref=e379]: 《失控进化》S2赛季「制霸王座」
+                - link "版本更新 《可口的比萨》半兽烤箱来啦！" [ref=e380] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-taptap-785288273"
+                  - generic [ref=e381]: 版本更新
+                  - generic [ref=e382]: 《可口的比萨》半兽烤箱来啦！
+                - link "新游上线 《大侠闯天下》首发" [ref=e383] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-taptap-679322297"
+                  - generic [ref=e384]: 新游上线
+                  - generic [ref=e385]: 《大侠闯天下》首发
+                - link "新游上线 《六边形战士》首发" [ref=e386] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-taptap-654388372"
+                  - generic [ref=e387]: 新游上线
+                  - generic [ref=e388]: 《六边形战士》首发
+                - link "新游上线 《小小公寓物语》首发" [ref=e389] [cursor=pointer]:
+                  - /url: "#/site/article/gn%3Aref-taptap-677415920"
+                  - generic [ref=e390]: 新游上线
+                  - generic [ref=e391]: 《小小公寓物语》首发
+              - generic [ref=e392]:
+                - generic [ref=e393]:
+                  - generic [ref=e394]: 2026-08-11
+                  - generic [ref=e395]: 60 条
+                - link "新游上线 Steam好评如潮 ·国区最抽象旮旯给木 完蛋！我被男同学包围了 手游研学篇上线！真实男高，不得不玩~ 9.81086人评价" [ref=e396] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-776352975"
+                  - generic [ref=e397]: 新游上线
+                  - generic [ref=e398]: Steam好评如潮 ·国区最抽象旮旯给木 完蛋！我被男同学包围了 手游研学篇上线！真实男高，不得不玩~ 9.81086人评价
+                - link "新游上线 王者万象棋-9月上线 多平台策略竞技 7.9将于9月正式上线" [ref=e399] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1783126838"
+                  - generic [ref=e400]: 新游上线
+                  - generic [ref=e401]: 王者万象棋-9月上线 多平台策略竞技 7.9将于9月正式上线
+                - link "新游上线 幻兽帕鲁世界 开放世界建造竞技 9.5预计26年内海外上线" [ref=e402] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-910919892"
+                  - generic [ref=e403]: 新游上线
+                  - generic [ref=e404]: 幻兽帕鲁世界 开放世界建造竞技 9.5预计26年内海外上线
+                - link "新游上线 漫画群星：大集结招募中 二次元多人联机即时战斗 7.3将于10月公布上线时间；今年内上线" [ref=e405] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-588601298"
+                  - generic [ref=e406]: 新游上线
+                  - generic [ref=e407]: 漫画群星：大集结招募中 二次元多人联机即时战斗 7.3将于10月公布上线时间；今年内上线
+                - link "新游上线 米塔 角色扮演第一人称3D 9.5移动端将于27年1月海外上线" [ref=e408] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1885234547"
+                  - generic [ref=e409]: 新游上线
+                  - generic [ref=e410]: 米塔 角色扮演第一人称3D 9.5移动端将于27年1月海外上线
+                - link "新游上线 九个国王 Roguelike策略卡牌 8.3将于26年Q4(10~12月)海外上线" [ref=e411] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1090491574"
+                  - generic [ref=e412]: 新游上线
+                  - generic [ref=e413]: 九个国王 Roguelike策略卡牌 8.3将于26年Q4(10~12月)海外上线
+              - generic [ref=e414]:
+                - generic [ref=e415]:
+                  - generic [ref=e416]: 2026-07-29
+                  - generic [ref=e417]: 73 条
+                - link "新游上线 王国保卫战6 策略动作建造 8.8预计27年Q2(4~6月)正式上线" [ref=e418] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1841821321"
+                  - generic [ref=e419]: 新游上线
+                  - generic [ref=e420]: 王国保卫战6 策略动作建造 8.8预计27年Q2(4~6月)正式上线
+                - link "新游上线 战争前线：突围-PC PC游戏射击动作 8.7将于Q4(10~12月)开启测试" [ref=e421] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-551482289"
+                  - generic [ref=e422]: 新游上线
+                  - generic [ref=e423]: 战争前线：突围-PC PC游戏射击动作 8.7将于Q4(10~12月)开启测试
+                - link "新游上线 装备仔 动作放置角色扮演 0.0将于26年内海外上线" [ref=e424] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1609963563"
+                  - generic [ref=e425]: 新游上线
+                  - generic [ref=e426]: 装备仔 动作放置角色扮演 0.0将于26年内海外上线
+                - link "新游上线 白日梦：无限世界 解谜剧情冒险 0.0预计8月下旬上线" [ref=e427] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-453182797"
+                  - generic [ref=e428]: 新游上线
+                  - generic [ref=e429]: 白日梦：无限世界 解谜剧情冒险 0.0预计8月下旬上线
+                - link "新游上线 新世界：暗影成双 互动影像角色扮演剧情 0.0将于26年内正式上线" [ref=e430] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-229795383"
+                  - generic [ref=e431]: 新游上线
+                  - generic [ref=e432]: 新世界：暗影成双 互动影像角色扮演剧情 0.0将于26年内正式上线
+                - link "新游上线 基地：银河纵横 SLG搜打撤太空 7.3将于Q3(7~9月)正式上线" [ref=e433] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-458353970"
+                  - generic [ref=e434]: 新游上线
+                  - generic [ref=e435]: 基地：银河纵横 SLG搜打撤太空 7.3将于Q3(7~9月)正式上线
+              - generic [ref=e436]:
+                - generic [ref=e437]:
+                  - generic [ref=e438]: 2026-07-24
+                  - generic [ref=e439]: 79 条
+                - link "新游上线 今日12点开启 崩铁 × Fate联动第二弹 联动角色远坂凛登场！免费送联动5星 8.83.0万人评价" [ref=e440] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-2011112659"
+                  - generic [ref=e441]: 新游上线
+                  - generic [ref=e442]: 今日12点开启 崩铁 × Fate联动第二弹 联动角色远坂凛登场！免费送联动5星 8.83.0万人评价
+                - link "新游上线 2025快爆年度最佳手游入围 超自然行动组-果宝特攻第二弹 编辑推荐多平台搜打撤 7.0 7394人评价 果宝特攻联动第二弹新皮肤【阿念-橙留香】与【巫铃儿-上官子怡】上线" [ref=e443] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1428294765"
+                  - generic [ref=e444]: 新游上线
+                  - generic [ref=e445]: 2025快爆年度最佳手游入围 超自然行动组-果宝特攻第二弹 编辑推荐多平台搜打撤 7.0 7394人评价 果宝特攻联动第二弹新皮肤【阿念-橙留香】与【巫铃儿-上官子怡】上线
+                - link "新游上线 《影之刃零》《巴别塔圣歌》过审！ 突发！7月国产+进口游戏版号新鲜出炉>>" [ref=e446] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-2128186941"
+                  - generic [ref=e447]: 新游上线
+                  - generic [ref=e448]: 《影之刃零》《巴别塔圣歌》过审！ 突发！7月国产+进口游戏版号新鲜出炉>>
+                - link "新游上线 《剑中》新服“豪侠29服“7月24日开启" [ref=e449] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-jiuyou-899061712"
+                  - generic [ref=e450]: 新游上线
+                  - generic [ref=e451]: 《剑中》新服“豪侠29服“7月24日开启
+                - link "新游上线 《侠义2》新服“剑啸九州”7月25日12点开启" [ref=e452] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-jiuyou-1902254532"
+                  - generic [ref=e453]: 新游上线
+                  - generic [ref=e454]: 《侠义2》新服“剑啸九州”7月25日12点开启
+                - link "新游上线 《侠义OL》7月25日12点新服：一骑绝尘" [ref=e455] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-jiuyou-357075346"
+                  - generic [ref=e456]: 新游上线
+                  - generic [ref=e457]: 《侠义OL》7月25日12点新服：一骑绝尘
+              - generic [ref=e458]:
+                - generic [ref=e459]:
+                  - generic [ref=e460]: 2026-07-23
+                  - generic [ref=e461]: 9 条
+                - link "新游上线 遗忘之海手游 已开服上线 抢先下载瓜分10万现金!木偶风航海冒险 6.8932人评价" [ref=e462] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1773226009"
+                  - generic [ref=e463]: 新游上线
+                  - generic [ref=e464]: 遗忘之海手游 已开服上线 抢先下载瓜分10万现金!木偶风航海冒险 6.8932人评价
+                - link "新游上线 新世界新风貌，逆水寒手游带你领略别样江湖" [ref=e465] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-74159023"
+                  - generic [ref=e466]: 新游上线
+                  - generic [ref=e467]: 新世界新风貌，逆水寒手游带你领略别样江湖
+                - link "新游上线 《饥荒联机版》手游已在海外上线！ 原汁原味！Steam知名多人联机沙盒生存游戏" [ref=e468] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-619723247"
+                  - generic [ref=e469]: 新游上线
+                  - generic [ref=e470]: 《饥荒联机版》手游已在海外上线！ 原汁原味！Steam知名多人联机沙盒生存游戏
+                - link "新游上线 《艾希2》计划27年上线PC版!定价48元 经典动作神作<艾希>续作,手游预计28年上线" [ref=e471] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-901754252"
+                  - generic [ref=e472]: 新游上线
+                  - generic [ref=e473]: 《艾希2》计划27年上线PC版!定价48元 经典动作神作<艾希>续作,手游预计28年上线
+                - link "新游上线 「良心工作室×胖布丁」联合大促今天开启 即刻免费领《分形空间》！更有超多折扣将至" [ref=e474] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1540140783"
+                  - generic [ref=e475]: 新游上线
+                  - generic [ref=e476]: 「良心工作室×胖布丁」联合大促今天开启 即刻免费领《分形空间》！更有超多折扣将至
+                - link "新游上线 什么叫《作业帮》正在开发女性向新游？！ 展开说说，什么叫赛博家教要变赛博男友了？" [ref=e477] [cursor=pointer]:
+                  - /url: "#/site/article/wx%3Aref-haoyou-1668530899"
+                  - generic [ref=e478]: 新游上线
+                  - generic [ref=e479]: 什么叫《作业帮》正在开发女性向新游？！ 展开说说，什么叫赛博家教要变赛博男友了？

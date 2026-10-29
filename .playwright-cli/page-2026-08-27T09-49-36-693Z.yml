@@ -1,0 +1,245 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link [ref=e5] [cursor=pointer]:
+      - /url: /
+      - strong [ref=e9]: GameNews Unified
+    - navigation [ref=e10]:
+      - link "资讯首页" [ref=e11] [cursor=pointer]:
+        - /url: /
+      - link "新游与活动" [ref=e15] [cursor=pointer]:
+        - /url: /mobile
+      - link "Steam 新游" [ref=e18] [cursor=pointer]:
+        - /url: /steam
+      - link "管理后台" [ref=e21] [cursor=pointer]:
+        - /url: /admin/overview
+  - main [ref=e25]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - paragraph [ref=e28]: GAME NEWS UNIFIED · 2026.08.27
+        - heading "把新游、活动与 Steam 放进同一个资讯入口" [level=1] [ref=e29]: 把新游、活动与 Steam放进同一个资讯入口
+        - paragraph [ref=e30]: 公开网站只呈现清洗后的资讯；后台管理来源、游戏记录与运行状态。
+        - generic [ref=e31]:
+          - link "浏览新游与活动" [ref=e32] [cursor=pointer]:
+            - /url: /mobile
+          - link "进入管理后台" [ref=e33] [cursor=pointer]:
+            - /url: /admin/sources
+      - complementary [ref=e34]:
+        - article [ref=e35]:
+          - generic [ref=e36]: 今日候选
+          - strong [ref=e37]: "240"
+          - generic [ref=e38]: 统一库当前可阅读内容
+        - article [ref=e39]:
+          - generic [ref=e40]: 来源正常
+          - strong [ref=e41]: 8/8
+          - generic [ref=e42]: 按来源独立展示运行状态
+        - article [ref=e43]:
+          - generic [ref=e44]: Steam 游戏
+          - strong [ref=e45]: "66"
+          - generic [ref=e46]: 历史快照与实时数据分开
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e49]: 今日编辑线
+        - generic [ref=e50]: 业务日期优先；同游戏跨平台内容合并为一个阅读入口。
+      - generic [ref=e51]:
+        - generic [ref=e52]: "7"
+        - generic [ref=e53]: 新游
+      - generic [ref=e54]:
+        - generic [ref=e55]: "6"
+        - generic [ref=e56]: 更新 / 活动
+      - generic [ref=e57]:
+        - generic [ref=e58]: "6"
+        - generic [ref=e59]: Steam 观察
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - paragraph [ref=e63]: MOBILE · UPCOMING
+          - heading "新游上线与测试" [level=2] [ref=e64]
+        - link "查看全部 →" [ref=e65] [cursor=pointer]:
+          - /url: /mobile
+      - generic [ref=e66]:
+        - link "08月27日 《咕咕大冒险》 开启删档测试 好游快爆 测试" [ref=e67] [cursor=pointer]:
+          - /url: https://www.3839.com/a/186253.htm
+          - generic [ref=e68]: 08月27日
+          - heading "《咕咕大冒险》" [level=3] [ref=e71]
+          - paragraph [ref=e72]: 开启删档测试
+          - generic [ref=e73]:
+            - generic [ref=e74]: 好游快爆
+            - generic [ref=e75]: 测试
+        - link "8月28日 10:00 《风云三国2》 暂无标题 小七 新游" [ref=e76] [cursor=pointer]:
+          - /url: https://www.x7sy.com/game/app/17797
+          - generic [ref=e77]: 8月28日 10:00
+          - heading "《风云三国2》" [level=3] [ref=e80]
+          - paragraph [ref=e81]: 暂无标题
+          - generic [ref=e82]:
+            - generic [ref=e83]: 小七
+            - generic [ref=e84]: 新游
+        - link "null 《发现好游戏》 TapTap玩聚节二轮门票开售 TapTap 新游" [ref=e85] [cursor=pointer]:
+          - /url: https://www.taptap.cn/forum/hot/hashtags?item=1
+          - generic [ref=e86]: "null"
+          - heading "《发现好游戏》" [level=3] [ref=e89]
+          - paragraph [ref=e90]: TapTap玩聚节二轮门票开售
+          - generic [ref=e91]:
+            - generic [ref=e92]: TapTap
+            - generic [ref=e93]: 新游
+        - 'link "null 《阴阳师》 # 阴阳师十周年活动公布 TapTap 新游" [ref=e94] [cursor=pointer]':
+          - /url: https://www.taptap.cn/forum/hot/hashtags?item=2
+          - generic [ref=e95]: "null"
+          - heading "《阴阳师》" [level=3] [ref=e98]
+          - paragraph [ref=e99]: "# 阴阳师十周年活动公布"
+          - generic [ref=e100]:
+            - generic [ref=e101]: TapTap
+            - generic [ref=e102]: 新游
+    - generic [ref=e103]:
+      - generic [ref=e104]:
+        - generic [ref=e105]:
+          - paragraph [ref=e106]: UPDATES & EVENTS
+          - heading "版本更新 / 活动 / 联动" [level=2] [ref=e107]
+        - link "查看全部 →" [ref=e108] [cursor=pointer]:
+          - /url: /mobile
+      - generic [ref=e109]:
+        - link "好游快爆 08月28日 《使命召唤手游-崩坏3联动9月开启》登录领史诗角色 登录领史诗角色" [ref=e110] [cursor=pointer]:
+          - /url: https://www.3839.com/a/101225.htm
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - generic [ref=e114]: 好游快爆
+              - time [ref=e115]: 08月28日
+            - heading "《使命召唤手游-崩坏3联动9月开启》登录领史诗角色" [level=3] [ref=e116]
+            - paragraph [ref=e117]: 登录领史诗角色
+        - link "好游快爆 08月27日 《无畏契约：源能行动》【冥府敕令】系列皮肤上线 【冥府敕令】系列皮肤上线" [ref=e118] [cursor=pointer]:
+          - /url: https://www.3839.com/a/131733.htm
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - generic [ref=e122]: 好游快爆
+              - time [ref=e123]: 08月27日
+            - heading "《无畏契约：源能行动》【冥府敕令】系列皮肤上线" [level=3] [ref=e124]
+            - paragraph [ref=e125]: 【冥府敕令】系列皮肤上线
+        - link "好游快爆 08月27日 《第五人格》鬼怪志异系列稀世时装上线 鬼怪志异系列稀世时装上线" [ref=e126] [cursor=pointer]:
+          - /url: https://www.3839.com/a/84747.htm
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: 好游快爆
+              - time [ref=e131]: 08月27日
+            - heading "《第五人格》鬼怪志异系列稀世时装上线" [level=3] [ref=e132]
+            - paragraph [ref=e133]: 鬼怪志异系列稀世时装上线
+        - link "好游快爆 08月27日 《金铲铲之战》分享【五周年回顾】领限定称号 分享【五周年回顾】领限定称号" [ref=e134] [cursor=pointer]:
+          - /url: https://www.3839.com/a/114071.htm
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: 好游快爆
+              - time [ref=e139]: 08月27日
+            - heading "《金铲铲之战》分享【五周年回顾】领限定称号" [level=3] [ref=e140]
+            - paragraph [ref=e141]: 分享【五周年回顾】领限定称号
+        - link "好游快爆 08月27日 《燕云十六声》民俗规则怪谈关卡「照影庙」开启 民俗规则怪谈关卡「照影庙」开启" [ref=e142] [cursor=pointer]:
+          - /url: https://www.3839.com/a/146289.htm
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - generic [ref=e146]: 好游快爆
+              - time [ref=e147]: 08月27日
+            - heading "《燕云十六声》民俗规则怪谈关卡「照影庙」开启" [level=3] [ref=e148]
+            - paragraph [ref=e149]: 民俗规则怪谈关卡「照影庙」开启
+        - link "好游快爆 08月27日 《乱涂彩世界》全新赛季「鸡金美食节」开启 全新赛季「鸡金美食节」开启" [ref=e150] [cursor=pointer]:
+          - /url: https://www.3839.com/a/183604.htm
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]: 好游快爆
+              - time [ref=e155]: 08月27日
+            - heading "《乱涂彩世界》全新赛季「鸡金美食节」开启" [level=3] [ref=e156]
+            - paragraph [ref=e157]: 全新赛季「鸡金美食节」开启
+    - generic [ref=e158]:
+      - generic [ref=e160]:
+        - paragraph [ref=e161]: PC NEWS
+        - heading "端游资讯" [level=2] [ref=e162]
+      - generic [ref=e163]:
+        - 'link "机核 08月27日 17:26 《建筑模拟器：进化》土木人狂喜：《建筑模拟器：进化》公布全新拆除玩法 astragon Entertainment与weltenbauer.今日正式公布《建筑模拟器：进化》（Construction Simulator: Evolution）的全新拆除玩法。与此同时，官方也对游戏的发行计划进行了调整：本作将率先通过Steam在PC平台开启抢先体验，PlayStation 5及Xbox Series X|S版本则调整至稍晚时间推出。" [ref=e164] [cursor=pointer]':
+          - /url: https://www.gcores.com/articles/218900
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]: 机核
+              - time [ref=e169]: 08月27日 17:26
+            - heading "《建筑模拟器：进化》土木人狂喜：《建筑模拟器：进化》公布全新拆除玩法" [level=3] [ref=e170]
+            - paragraph [ref=e171]: "astragon Entertainment与weltenbauer.今日正式公布《建筑模拟器：进化》（Construction Simulator: Evolution）的全新拆除玩法。与此同时，官方也对游戏的发行计划进行了调整：本作将率先通过Steam在PC平台开启抢先体验，PlayStation 5及Xbox Series X|S版本则调整至稍晚时间推出。"
+        - link "机核 08月27日 16:47 《守墓人2》定档，2026年9月22日全球发售 由开发工作室Lazy Bear Games打造、Solo Game代理发行中国大陆地区的全新续作《守墓人2》（Graveyard Keeper 2）计划于2026年9月22日正式发售，目前游戏已开启预购。" [ref=e172] [cursor=pointer]:
+          - /url: https://www.gcores.com/articles/218897
+          - generic [ref=e174]:
+            - generic [ref=e175]:
+              - generic [ref=e176]: 机核
+              - time [ref=e177]: 08月27日 16:47
+            - heading "《守墓人2》定档，2026年9月22日全球发售" [level=3] [ref=e178]
+            - paragraph [ref=e179]: 由开发工作室Lazy Bear Games打造、Solo Game代理发行中国大陆地区的全新续作《守墓人2》（Graveyard Keeper 2）计划于2026年9月22日正式发售，目前游戏已开启预购。
+        - link "游民星空 08月27日 17:12 《守墓人2》定档9.22全球发行 现已开起预购 由开发工作室Lazy Bear Games打造、Solo Game代理发行中国大陆地区的全新续作《守墓人2》（Graveyard Keeper 2）计划于2026年9月22日正式发售，目前游戏已开启预购。" [ref=e180] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197413.shtml
+          - generic [ref=e182]:
+            - generic [ref=e183]:
+              - generic [ref=e184]: 游民星空
+              - time [ref=e185]: 08月27日 17:12
+            - heading "《守墓人2》定档9.22全球发行 现已开起预购" [level=3] [ref=e186]
+            - paragraph [ref=e187]: 由开发工作室Lazy Bear Games打造、Solo Game代理发行中国大陆地区的全新续作《守墓人2》（Graveyard Keeper 2）计划于2026年9月22日正式发售，目前游戏已开启预购。
+        - link "游民星空 08月27日 17:06 《龙之信条2》卡普空官方致歉！《龙之信条2》超大更新延期 9月见 《龙之信条2》是一款由卡普空开发并发行的动作角色扮演游戏，最初于2024年发售。其最新DLC“黑暗觉者”即将于10月9日正式发售。" [ref=e188] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197399.shtml
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - generic [ref=e192]: 游民星空
+              - time [ref=e193]: 08月27日 17:06
+            - heading "《龙之信条2》卡普空官方致歉！《龙之信条2》超大更新延期 9月见" [level=3] [ref=e194]
+            - paragraph [ref=e195]: 《龙之信条2》是一款由卡普空开发并发行的动作角色扮演游戏，最初于2024年发售。其最新DLC“黑暗觉者”即将于10月9日正式发售。
+        - link "游民星空 08月27日 17:05 《未命名游戏》葱哥和R星爆了？称泄露版本其实很新 R星在疯狂赶工 由你来说： 《GTA6》最新泄露中，黑客Cyberleak（葱哥）除了放视频，还扔下了一句狠话：“这个泄露版本实际上很新，游戏完全没准备好。”索尼和R星“正在剥夺你们拥有和转售游戏的权利”，R星“还在压榨自己的员工”，在剩下的时间里“要把游戏做到能发售的状态，工作量太大了”。R星官方正式声明——“游戏已经接近完成（nearly there！）”，发售日不变。你更相信谁？" [ref=e196] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197398.shtml
+          - generic [ref=e198]:
+            - generic [ref=e199]:
+              - generic [ref=e200]: 游民星空
+              - time [ref=e201]: 08月27日 17:05
+            - heading "《未命名游戏》葱哥和R星爆了？称泄露版本其实很新 R星在疯狂赶工" [level=3] [ref=e202]
+            - paragraph [ref=e203]: 由你来说： 《GTA6》最新泄露中，黑客Cyberleak（葱哥）除了放视频，还扔下了一句狠话：“这个泄露版本实际上很新，游戏完全没准备好。”索尼和R星“正在剥夺你们拥有和转售游戏的权利”，R星“还在压榨自己的员工”，在剩下的时间里“要把游戏做到能发售的状态，工作量太大了”。R星官方正式声明——“游戏已经接近完成（nearly there！）”，发售日不变。你更相信谁？
+        - link "游民星空 08月27日 16:51 《漫威争锋》安吉拉“冥界女王”制服8月28日上线 暗黑冥界风造型亮相 《漫威争锋》官方B站视频发布安吉拉“冥界女王”制服上新预告，该制服将于北京时间8月28日10:00正式上架。视频以一段冥界独白铺垫氛围：即便是死亡也未能阻止安吉拉追寻心中所信，她借被诅咒者玛勒基斯之口传信，最终以“冥界女王”之姿加冕。" [ref=e204] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197378.shtml
+          - generic [ref=e206]:
+            - generic [ref=e207]:
+              - generic [ref=e208]: 游民星空
+              - time [ref=e209]: 08月27日 16:51
+            - heading "《漫威争锋》安吉拉“冥界女王”制服8月28日上线 暗黑冥界风造型亮相" [level=3] [ref=e210]
+            - paragraph [ref=e211]: 《漫威争锋》官方B站视频发布安吉拉“冥界女王”制服上新预告，该制服将于北京时间8月28日10:00正式上架。视频以一段冥界独白铺垫氛围：即便是死亡也未能阻止安吉拉追寻心中所信，她借被诅咒者玛勒基斯之口传信，最终以“冥界女王”之姿加冕。
+    - generic [ref=e212]:
+      - generic [ref=e213]:
+        - generic [ref=e214]:
+          - paragraph [ref=e215]: STEAM · RADAR
+          - heading "Steam 新游观察" [level=2] [ref=e216]
+        - link "查看全部 →" [ref=e217] [cursor=pointer]:
+          - /url: /steam
+      - generic [ref=e218]:
+        - article [ref=e219]:
+          - generic [ref=e220]: M
+          - generic [ref=e222]:
+            - heading "Mortal Shell II" [level=3] [ref=e223]
+            - paragraph [ref=e224]: 2026-08-20
+            - generic [ref=e225]: Cold Symmetry
+        - article [ref=e226]:
+          - generic [ref=e227]: 渔
+          - generic [ref=e229]:
+            - heading "渔力全开" [level=3] [ref=e230]
+            - paragraph [ref=e231]: 2026-08-20
+            - generic [ref=e232]: Dazed Games
+        - article [ref=e233]:
+          - generic [ref=e234]: 无
+          - generic [ref=e236]:
+            - heading "无间地狱2" [level=3] [ref=e237]
+            - paragraph [ref=e238]: 2026-08-11(正式)
+            - generic [ref=e239]: Torn Banner Studios
+        - article [ref=e240]:
+          - generic [ref=e241]: F
+          - generic [ref=e243]:
+            - heading "Fields of Mistria" [level=3] [ref=e244]
+            - paragraph [ref=e245]: 2026-08-05
+            - generic [ref=e246]: NPC Studio
+        - article [ref=e247]:
+          - generic [ref=e248]: B
+          - generic [ref=e250]:
+            - heading "Big Walk" [level=3] [ref=e251]
+            - paragraph [ref=e252]: 2026-08-04
+            - generic [ref=e253]: House House
+        - article [ref=e254]:
+          - generic [ref=e255]: 机
+          - generic [ref=e257]:
+            - heading "机械狂欢 Machine Party" [level=3] [ref=e258]
+            - paragraph [ref=e259]: 2026-07-30
+            - generic [ref=e260]: Mike Klubnika/GDeavid
+  - contentinfo [ref=e261]: 统一 SQLite 数据源 · 前端已迁入，采集与发送由迁移任务接管。

@@ -1,0 +1,192 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - link [ref=e5] [cursor=pointer]:
+      - /url: /
+      - strong [ref=e9]: GameNews Unified
+    - navigation [ref=e10]:
+      - link "资讯首页" [ref=e11] [cursor=pointer]:
+        - /url: /
+      - link "新游与活动" [ref=e15] [cursor=pointer]:
+        - /url: /mobile
+      - link "Steam 新游" [ref=e18] [cursor=pointer]:
+        - /url: /steam
+      - link "管理后台" [ref=e21] [cursor=pointer]:
+        - /url: /admin/overview
+  - main [ref=e25]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - paragraph [ref=e28]: GAME NEWS UNIFIED · 2026.08.27
+        - heading "把新游、活动与 Steam 放进同一个资讯入口" [level=1] [ref=e29]: 把新游、活动与 Steam放进同一个资讯入口
+        - paragraph [ref=e30]: 公开网站只呈现清洗后的资讯；后台管理来源、游戏记录与运行状态。
+        - generic [ref=e31]:
+          - link "浏览新游与活动" [ref=e32] [cursor=pointer]:
+            - /url: /mobile
+          - link "进入管理后台" [ref=e33] [cursor=pointer]:
+            - /url: /admin/sources
+      - complementary [ref=e34]:
+        - article [ref=e35]:
+          - generic [ref=e36]: 今日候选
+          - strong [ref=e37]: "240"
+          - generic [ref=e38]: 统一库当前可阅读内容
+        - article [ref=e39]:
+          - generic [ref=e40]: 来源正常
+          - strong [ref=e41]: 8/8
+          - generic [ref=e42]: 按来源独立展示运行状态
+        - article [ref=e43]:
+          - generic [ref=e44]: Steam 游戏
+          - strong [ref=e45]: "66"
+          - generic [ref=e46]: 历史快照与实时数据分开
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e49]: 今日编辑线
+        - generic [ref=e50]: 业务日期优先；同游戏跨平台内容合并为一个阅读入口。
+      - generic [ref=e51]:
+        - generic [ref=e52]: "6"
+        - generic [ref=e53]: 新游
+      - generic [ref=e54]:
+        - generic [ref=e55]: "6"
+        - generic [ref=e56]: 更新 / 活动
+      - generic [ref=e57]:
+        - generic [ref=e58]: "6"
+        - generic [ref=e59]: Steam 观察
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - paragraph [ref=e63]: MOBILE · UPCOMING
+          - heading "新游上线与测试" [level=2] [ref=e64]
+        - link "查看全部 →" [ref=e65] [cursor=pointer]:
+          - /url: /mobile
+      - generic [ref=e66]:
+        - link "08月27日 16:16 《巫师3：狂猎》 DLC旧时曲有新恋爱内容！杰洛特调情新妹子 又享福了 游民星空 新游" [ref=e67] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197304.shtml
+          - generic [ref=e68]: 08月27日 16:16
+          - heading "《巫师3：狂猎》" [level=3] [ref=e71]
+          - paragraph [ref=e72]: DLC旧时曲有新恋爱内容！杰洛特调情新妹子 又享福了
+          - generic [ref=e73]:
+            - generic [ref=e74]: 游民星空
+            - generic [ref=e75]: 新游
+        - link "08月27日 16:11 《GTA6》 网飞会员卖爆 为早看《GTA6》官方实机花钱值得吗？ 游民星空 新游" [ref=e76] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197299.shtml
+          - generic [ref=e77]: 08月27日 16:11
+          - heading "《GTA6》" [level=3] [ref=e80]
+          - paragraph [ref=e81]: 网飞会员卖爆 为早看《GTA6》官方实机花钱值得吗？
+          - generic [ref=e82]:
+            - generic [ref=e83]: 游民星空
+            - generic [ref=e84]: 新游
+        - link "08月27日 16:09 《艾尔登法环:褪色者版》 官方7分钟实机！画面很惊艳 游民星空 新游" [ref=e85] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197296.shtml
+          - generic [ref=e86]: 08月27日 16:09
+          - heading "《艾尔登法环:褪色者版》" [level=3] [ref=e89]
+          - paragraph [ref=e90]: 官方7分钟实机！画面很惊艳
+          - generic [ref=e91]:
+            - generic [ref=e92]: 游民星空
+            - generic [ref=e93]: 新游
+        - link "08月27日 15:50 《异度之刃2》 突然更新！任天堂匠心打造 体验再升级 游民星空 新游" [ref=e94] [cursor=pointer]:
+          - /url: https://www.gamersky.com/news/202608/2197265.shtml
+          - generic [ref=e95]: 08月27日 15:50
+          - heading "《异度之刃2》" [level=3] [ref=e98]
+          - paragraph [ref=e99]: 突然更新！任天堂匠心打造 体验再升级
+          - generic [ref=e100]:
+            - generic [ref=e101]: 游民星空
+            - generic [ref=e102]: 新游
+    - generic [ref=e103]:
+      - generic [ref=e104]:
+        - generic [ref=e105]:
+          - paragraph [ref=e106]: UPDATES & EVENTS
+          - heading "版本更新 / 活动 / 联动" [level=2] [ref=e107]
+        - link "查看全部 →" [ref=e108] [cursor=pointer]:
+          - /url: /mobile
+      - generic [ref=e109]:
+        - link "好游快爆 08月28日 《使命召唤手游-崩坏3联动9月开启》登录领史诗角色 登录领史诗角色" [ref=e110] [cursor=pointer]:
+          - /url: https://www.3839.com/a/101225.htm
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - generic [ref=e114]: 好游快爆
+              - time [ref=e115]: 08月28日
+            - heading "《使命召唤手游-崩坏3联动9月开启》登录领史诗角色" [level=3] [ref=e116]
+            - paragraph [ref=e117]: 登录领史诗角色
+        - link "好游快爆 08月27日 《无畏契约：源能行动》【冥府敕令】系列皮肤上线 【冥府敕令】系列皮肤上线" [ref=e118] [cursor=pointer]:
+          - /url: https://www.3839.com/a/131733.htm
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - generic [ref=e122]: 好游快爆
+              - time [ref=e123]: 08月27日
+            - heading "《无畏契约：源能行动》【冥府敕令】系列皮肤上线" [level=3] [ref=e124]
+            - paragraph [ref=e125]: 【冥府敕令】系列皮肤上线
+        - link "好游快爆 08月27日 《第五人格》鬼怪志异系列稀世时装上线 鬼怪志异系列稀世时装上线" [ref=e126] [cursor=pointer]:
+          - /url: https://www.3839.com/a/84747.htm
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: 好游快爆
+              - time [ref=e131]: 08月27日
+            - heading "《第五人格》鬼怪志异系列稀世时装上线" [level=3] [ref=e132]
+            - paragraph [ref=e133]: 鬼怪志异系列稀世时装上线
+        - link "好游快爆 08月27日 《金铲铲之战》分享【五周年回顾】领限定称号 分享【五周年回顾】领限定称号" [ref=e134] [cursor=pointer]:
+          - /url: https://www.3839.com/a/114071.htm
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: 好游快爆
+              - time [ref=e139]: 08月27日
+            - heading "《金铲铲之战》分享【五周年回顾】领限定称号" [level=3] [ref=e140]
+            - paragraph [ref=e141]: 分享【五周年回顾】领限定称号
+        - link "好游快爆 08月27日 《燕云十六声》民俗规则怪谈关卡「照影庙」开启 民俗规则怪谈关卡「照影庙」开启" [ref=e142] [cursor=pointer]:
+          - /url: https://www.3839.com/a/146289.htm
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - generic [ref=e146]: 好游快爆
+              - time [ref=e147]: 08月27日
+            - heading "《燕云十六声》民俗规则怪谈关卡「照影庙」开启" [level=3] [ref=e148]
+            - paragraph [ref=e149]: 民俗规则怪谈关卡「照影庙」开启
+        - link "好游快爆 08月27日 《乱涂彩世界》全新赛季「鸡金美食节」开启 全新赛季「鸡金美食节」开启" [ref=e150] [cursor=pointer]:
+          - /url: https://www.3839.com/a/183604.htm
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]: 好游快爆
+              - time [ref=e155]: 08月27日
+            - heading "《乱涂彩世界》全新赛季「鸡金美食节」开启" [level=3] [ref=e156]
+            - paragraph [ref=e157]: 全新赛季「鸡金美食节」开启
+    - generic [ref=e158]:
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - paragraph [ref=e161]: STEAM · RADAR
+          - heading "Steam 新游观察" [level=2] [ref=e162]
+        - link "查看全部 →" [ref=e163] [cursor=pointer]:
+          - /url: /steam
+      - generic [ref=e164]:
+        - article [ref=e165]:
+          - generic [ref=e166]: M
+          - generic [ref=e168]:
+            - heading "Mortal Shell II" [level=3] [ref=e169]
+            - paragraph [ref=e170]: 2026-08-20
+            - generic [ref=e171]: Cold Symmetry
+        - article [ref=e172]:
+          - generic [ref=e173]: 渔
+          - generic [ref=e175]:
+            - heading "渔力全开" [level=3] [ref=e176]
+            - paragraph [ref=e177]: 2026-08-20
+            - generic [ref=e178]: Dazed Games
+        - article [ref=e179]:
+          - generic [ref=e180]: 无
+          - generic [ref=e182]:
+            - heading "无间地狱2" [level=3] [ref=e183]
+            - paragraph [ref=e184]: 2026-08-11(正式)
+            - generic [ref=e185]: Torn Banner Studios
+        - article [ref=e186]:
+          - generic [ref=e187]: F
+          - generic [ref=e189]:
+            - heading "Fields of Mistria" [level=3] [ref=e190]
+            - paragraph [ref=e191]: 2026-08-05
+            - generic [ref=e192]: NPC Studio
+        - article [ref=e193]:
+          - generic [ref=e194]: B
+          - generic [ref=e196]:
+            - heading "Big Walk" [level=3] [ref=e197]
+            - paragraph [ref=e198]: 2026-08-04
+            - generic [ref=e199]: House House
+        - article [ref=e200]:
+          - generic [ref=e201]: 机
+          - generic [ref=e203]:
+            - heading "机械狂欢 Machine Party" [level=3] [ref=e204]
+            - paragraph [ref=e205]: 2026-07-30
+            - generic [ref=e206]: Mike Klubnika/GDeavid
+  - contentinfo [ref=e207]: 统一 SQLite 数据源 · 前端已迁入，采集与发送由迁移任务接管。

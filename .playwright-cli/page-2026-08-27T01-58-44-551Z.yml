@@ -1,0 +1,17 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: GN
+      - strong [ref=e7]: GameNews
+    - navigation "资讯网站导航" [ref=e8]:
+      - link "资讯首页" [ref=e9] [cursor=pointer]:
+        - /url: "#/site"
+      - link "新游与活动" [ref=e10] [cursor=pointer]:
+        - /url: "#/site-dash"
+      - link "Steam 新游" [ref=e11] [cursor=pointer]:
+        - /url: "#/site-steam"
+      - link "简讯海报" [ref=e12] [cursor=pointer]:
+        - /url: "#/site-briefs"
+      - link "管理后台" [ref=e13] [cursor=pointer]:
+        - /url: "#/admin"
+  - main [ref=e14]

@@ -1,0 +1,126 @@
+- generic [ref=f1e3]:
+  - banner [ref=f1e4]:
+    - link [ref=f1e5] [cursor=pointer]:
+      - /url: /
+      - strong [ref=f1e9]: GameNews Unified
+    - navigation [ref=f1e10]:
+      - link "资讯首页" [ref=f1e11] [cursor=pointer]:
+        - /url: /
+      - link "新游与活动" [ref=f1e15] [cursor=pointer]:
+        - /url: /mobile
+      - link "Steam 新游" [ref=f1e18] [cursor=pointer]:
+        - /url: /steam
+      - link "管理后台" [ref=f1e21] [cursor=pointer]:
+        - /url: /admin/overview
+  - main [ref=f1e25]:
+    - generic [ref=f1e26]:
+      - generic [ref=f1e27]:
+        - paragraph [ref=f1e28]: ADMIN
+        - heading "管理后台" [level=1] [ref=f1e29]
+        - paragraph [ref=f1e30]: 统一项目的前端与只读接口层已接入；爬虫执行、外部发送和完整调度迁移由后端任务完成。
+      - link "管理来源" [ref=f1e32] [cursor=pointer]:
+        - /url: /admin/sources
+    - generic [ref=f1e36]:
+      - complementary [ref=f1e37]:
+        - link "数据总览" [ref=f1e38] [cursor=pointer]:
+          - /url: /admin/overview
+        - link "来源采集" [ref=f1e41] [cursor=pointer]:
+          - /url: /admin/sources
+        - link "游戏管理" [ref=f1e44] [cursor=pointer]:
+          - /url: /admin/games
+        - link "飞书同步" [ref=f1e47] [cursor=pointer]:
+          - /url: /admin/feishu
+        - link "定时任务" [ref=f1e51] [cursor=pointer]:
+          - /url: /admin/tasks
+        - link "运行日志" [ref=f1e56] [cursor=pointer]:
+          - /url: /admin/logs
+        - link "返回资讯网站" [ref=f1e60] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f1e65]:
+        - generic [ref=f1e68]:
+          - paragraph [ref=f1e69]: SCHEDULE
+          - heading "定时任务" [level=2] [ref=f1e70]
+        - article [ref=f1e71]:
+          - generic [ref=f1e72]:
+            - generic [ref=f1e73]:
+              - strong [ref=f1e74]: 新游 / 活动监控
+              - paragraph [ref=f1e75]: 采集来源、清洗内容、跨平台去重后写入统一库。
+            - generic [ref=f1e76]: 成功
+          - generic [ref=f1e77]:
+            - generic [ref=f1e78]: 频率：每 1 小时
+            - generic [ref=f1e79]: 最近执行：08-27T08:40
+            - generic [ref=f1e80]: 下次执行：08-27T09:40
+          - generic [ref=f1e81]:
+            - generic [ref=f1e82]:
+              - generic [ref=f1e83]: 子来源
+              - generic [ref=f1e84]: 状态
+              - generic [ref=f1e85]: 发现/新增
+              - generic [ref=f1e86]: 最近
+              - generic [ref=f1e87]: 错误
+            - generic [ref=f1e88]:
+              - generic [ref=f1e89]: ref-gamersky
+              - generic [ref=f1e90]: ok
+              - generic [ref=f1e91]: 15/5
+              - generic [ref=f1e92]: 08-27T08:42
+              - generic [ref=f1e93]: —
+            - generic [ref=f1e94]:
+              - generic [ref=f1e95]: ref-gcores
+              - generic [ref=f1e96]: ok
+              - generic [ref=f1e97]: 7/0
+              - generic [ref=f1e98]: 08-27T08:42
+              - generic [ref=f1e99]: —
+            - generic [ref=f1e100]:
+              - generic [ref=f1e101]: ref-haoyou
+              - generic [ref=f1e102]: ok
+              - generic [ref=f1e103]: 41/0
+              - generic [ref=f1e104]: 08-27T08:42
+              - generic [ref=f1e105]: —
+            - generic [ref=f1e106]:
+              - generic [ref=f1e107]: ref-steam
+              - generic [ref=f1e108]: ok
+              - generic [ref=f1e109]: 15/1
+              - generic [ref=f1e110]: 08-27T08:42
+              - generic [ref=f1e111]: —
+            - generic [ref=f1e112]:
+              - generic [ref=f1e113]: ref-taptap
+              - generic [ref=f1e114]: ok
+              - generic [ref=f1e115]: 1/0
+              - generic [ref=f1e116]: 08-27T08:42
+              - generic [ref=f1e117]: —
+            - generic [ref=f1e118]:
+              - generic [ref=f1e119]: ref-x7
+              - generic [ref=f1e120]: ok
+              - generic [ref=f1e121]: 9/0
+              - generic [ref=f1e122]: 08-27T08:40
+              - generic [ref=f1e123]: —
+        - article [ref=f1e124]:
+          - generic [ref=f1e125]:
+            - generic [ref=f1e126]:
+              - strong [ref=f1e127]: 今日简讯海报
+              - paragraph [ref=f1e128]: 从统一库生成今日简讯与海报归档。
+            - generic [ref=f1e129]: 成功
+          - generic [ref=f1e130]:
+            - generic [ref=f1e131]: 频率：每日 09:30
+            - generic [ref=f1e132]: 最近执行：08-27T04:50
+            - generic [ref=f1e133]: 下次执行：08-28T01:30
+        - article [ref=f1e134]:
+          - generic [ref=f1e135]:
+            - generic [ref=f1e136]:
+              - strong [ref=f1e137]: 游戏资讯周报
+              - paragraph [ref=f1e138]: 统计过去 14 天的新游、活动、Steam 与端游资讯。
+            - generic [ref=f1e139]: 成功
+          - generic [ref=f1e140]:
+            - generic [ref=f1e141]: 频率：周一 09:00
+            - generic [ref=f1e142]: 最近执行：08-26T09:20
+            - generic [ref=f1e143]: 下次执行：08-31T01:00
+        - article [ref=f1e144]:
+          - generic [ref=f1e145]:
+            - generic [ref=f1e146]:
+              - strong [ref=f1e147]: Steam 实时快照
+              - paragraph [ref=f1e148]: 调用保留的 GameNews 采集器写入实时快照（不重写采集器）。
+            - generic [ref=f1e149]: 成功
+          - generic [ref=f1e150]:
+            - generic [ref=f1e151]: 频率：每 6 小时
+            - generic [ref=f1e152]: 最近执行：08-27T08:43
+            - generic [ref=f1e153]: 下次执行：08-27T14:43
+  - contentinfo [ref=f1e154]: 统一 SQLite 数据源 · 前端已迁入，采集与发送由迁移任务接管。

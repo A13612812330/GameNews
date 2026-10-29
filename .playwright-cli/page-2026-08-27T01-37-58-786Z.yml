@@ -1,0 +1,20 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: GN
+      - generic [ref=e6]:
+        - strong [ref=e7]: GameNews
+        - generic [ref=e8]: 资讯采集与简讯工作台
+    - navigation "主导航" [ref=e9]:
+      - link "今日工作台" [ref=e10] [cursor=pointer]:
+        - /url: "#/site"
+      - link "抓取资讯" [ref=e11] [cursor=pointer]:
+        - /url: "#/feed"
+      - link "简讯与海报" [ref=e12] [cursor=pointer]:
+        - /url: "#/briefs"
+      - link "Steam 分析" [ref=e13] [cursor=pointer]:
+        - /url: "#/steam"
+      - link "爬虫监控" [ref=e14] [cursor=pointer]:
+        - /url: "#/ops"
+    - generic [ref=e15]: API OK
+  - main [ref=e16]

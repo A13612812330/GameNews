@@ -1,0 +1,60 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: GN
+        - text: GameNews
+      - generic [ref=e6]:
+        - button "资讯首页" [ref=e7] [cursor=pointer]
+        - button "新游与活动" [ref=e8] [cursor=pointer]
+        - button "Steam 新游" [active] [ref=e9] [cursor=pointer]
+        - button "简讯海报" [ref=e10] [cursor=pointer]
+        - button "文章详情" [ref=e11] [cursor=pointer]
+        - button "管理后台" [ref=e12] [cursor=pointer]
+  - main [ref=e13]:
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e99]:
+          - generic [ref=e100]: STEAM · NEW & TRENDING
+          - heading "Steam 新游观察" [level=1] [ref=e101]
+        - generic [ref=e102]: 查看数据口径 →
+      - generic [ref=e103]:
+        - article [ref=e104]:
+          - text: NEW RELEASES
+          - strong [ref=e105]: "18"
+          - text: 过去 7 天至未来 7 天的上线窗口
+        - article [ref=e106]:
+          - text: RANKING MOVERS
+          - strong [ref=e107]: "5"
+          - text: 新上榜与排名显著提升的游戏
+      - generic [ref=e108]:
+        - article [ref=e109]:
+          - generic [ref=e111]:
+            - heading "Mortal Shell II" [level=3] [ref=e112]
+            - paragraph [ref=e113]: 8 月 20 日 · 新发售
+            - generic [ref=e114]: 动作 RPG
+        - article [ref=e115]:
+          - generic [ref=e117]:
+            - heading "渔力全开" [level=3] [ref=e118]
+            - paragraph [ref=e119]: 本周排名上升
+            - generic [ref=e120]: 模拟经营
+        - article [ref=e121]:
+          - generic [ref=e123]:
+            - heading "无间地狱 2" [level=3] [ref=e124]
+            - paragraph [ref=e125]: 近期上线
+            - generic [ref=e126]: 动作
+        - article [ref=e127]:
+          - generic [ref=e129]:
+            - heading "幻兽帕鲁" [level=3] [ref=e130]
+            - paragraph [ref=e131]: 热度观察
+            - generic [ref=e132]: 开放世界
+        - article [ref=e133]:
+          - generic [ref=e135]:
+            - heading "Big Walk" [level=3] [ref=e136]
+            - paragraph [ref=e137]: 新上榜
+            - generic [ref=e138]: 多人
+        - article [ref=e139]:
+          - generic [ref=e141]:
+            - heading "Fields of Mistria" [level=3] [ref=e142]
+            - paragraph [ref=e143]: 社区讨论增长
+            - generic [ref=e144]: 模拟

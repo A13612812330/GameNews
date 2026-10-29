@@ -1,0 +1,93 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: GN
+        - text: GameNews
+      - generic [ref=e6]:
+        - button "资讯首页" [ref=e7] [cursor=pointer]
+        - button "新游与活动" [ref=e8] [cursor=pointer]
+        - button "Steam 新游" [ref=e9] [cursor=pointer]
+        - button "简讯海报" [ref=e10] [cursor=pointer]
+        - button "文章详情" [ref=e11] [cursor=pointer]
+        - button "管理后台" [ref=e12] [cursor=pointer]
+  - main [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - article [ref=e16]:
+          - generic [ref=e17]: AUGUST 27 · DAILY SELECTION
+          - heading "今天值得关注的 游戏新游与版本活动" [level=1] [ref=e18]: 今天值得关注的游戏新游与版本活动
+          - paragraph [ref=e19]: 把新游、版本、联动和 Steam 热度整理成一个能直接阅读的资讯网站，而不是一张后台数据表。
+          - generic [ref=e20]:
+            - generic [ref=e21]: 今日精选
+            - generic [ref=e22]: 已更新 42 条资讯
+        - complementary [ref=e23]:
+          - article [ref=e24]:
+            - generic [ref=e25]: UPCOMING
+            - heading "本周 18 款手游进入上线或测试窗口" [level=3] [ref=e26]
+            - paragraph [ref=e27]: 按上线日期、平台和质量筛选。
+          - article [ref=e29]:
+            - generic [ref=e30]: STEAM RADAR
+            - heading "8 款新游进入本周热度观察" [level=3] [ref=e31]
+            - paragraph [ref=e32]: 新上榜、排名提升与近期发售集中展示。
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e36]: MOBILE · UPCOMING
+          - heading "新游上线与测试" [level=2] [ref=e37]
+        - generic [ref=e38]: 查看全部 →
+      - generic [ref=e39]:
+        - article [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]: 8 月 28 日上线
+            - generic [ref=e43]: 真·三国无双 霸
+          - generic [ref=e44]:
+            - heading "动作策略手游正式上线" [level=3] [ref=e45]
+            - paragraph [ref=e46]: 主机经典 IP 改编，首发版本同步开放核心玩法。
+            - generic [ref=e47]:
+              - generic [ref=e48]: 小七
+              - generic [ref=e49]: 新游
+        - article [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]: 8 月 28 日 10:00
+            - generic [ref=e53]: 星布谷地
+          - generic [ref=e54]:
+            - heading "开放世界新作开启预约" [level=3] [ref=e55]
+            - paragraph [ref=e56]: 探索、模拟经营和首轮测试资格更新。
+            - generic [ref=e57]:
+              - generic [ref=e58]: TapTap
+              - generic [ref=e59]: 测试
+        - article [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e62]: 8 月 29 日
+            - generic [ref=e63]: 风云三国 2
+          - generic [ref=e64]:
+            - heading "多人策略战场首发" [level=3] [ref=e65]
+            - paragraph [ref=e66]: 阵营对抗和赛季玩法同步上线。
+            - generic [ref=e67]:
+              - generic [ref=e68]: 小七
+              - generic [ref=e69]: 新游
+        - article [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e72]: 9 月 1 日
+            - generic [ref=e73]: 异能都市
+          - generic [ref=e74]:
+            - heading "都市异能题材预约开启" [level=3] [ref=e75]
+            - paragraph [ref=e76]: 游戏资料、预约人数与上线信息持续更新。
+            - generic [ref=e77]:
+              - generic [ref=e78]: 好游快爆
+              - generic [ref=e79]: 预约
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]: UPDATES & EVENTS
+          - heading "版本更新 / 活动 / 联动" [level=2] [ref=e83]
+          - paragraph [ref=e84]: 把重点游戏版本节点做成轻量的图文浏览区。
+        - article [ref=e85]:
+          - generic [ref=e87]:
+            - generic [ref=e88]: TapTap · 8 月 28 日
+            - heading "《原神》7.0 新版本「无神怜爱的雪国」" [level=3] [ref=e89]
+            - paragraph [ref=e90]: 新角色、新剧情与全新区域同步开放。
+        - article [ref=e91]:
+          - generic [ref=e93]:
+            - generic [ref=e94]: 好游快爆 · 8 月 29 日
+            - heading "《逆战：未来》七夕联动活动上线" [level=3] [ref=e95]
+            - paragraph [ref=e96]: 完成活动任务可解锁限定奖励。
